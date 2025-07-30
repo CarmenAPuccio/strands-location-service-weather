@@ -137,6 +137,10 @@ celerybeat.pid
 # Environments
 .env
 .envrc
+
+# Local environment overrides only
+.env
+config.local.toml
 .venv
 env/
 venv/

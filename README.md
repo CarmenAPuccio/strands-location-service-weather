@@ -2,24 +2,113 @@
 
 This project combines Amazon Location Service MCP Server with weather data to provide location-based weather information using Amazon Bedrock for natural language processing.
 
-## Components
+## Project Structure
 
-- **location_weather.py**: Unified module that combines Amazon Location Service MCP tools, weather data retrieval, and Bedrock integration
-- **main.py**: Command-line interface with OpenTelemetry observability features
+The project follows Python packaging best practices with a `src/` layout:
+
+```
+├── src/
+│   └── strands_location_service_weather/
+│       ├── __init__.py
+│       ├── main.py               # CLI entry point with OpenTelemetry setup
+│       └── location_weather.py   # Core module with unified client and tools
+├── pyproject.toml                # Modern Python project configuration
+└── .kiro/steering/               # AI assistant guidance documents
+```
+
+## Installation & Setup
+
+```bash
+# Install dependencies
+uv sync
+
+# Install with development tools (Black, Ruff)
+uv sync --extra dev
+```
+
+## Configuration
+
+The application can be configured through environment variables or an optional config file.
+
+### Environment Variables
+
+Create a `.env` file for local development if needed:
+
+```bash
+# Create .env file with your overrides
+echo "DEVELOPMENT=true" > .env
+```
+
+Key environment variables:
+- `DEVELOPMENT=true` - Enable verbose logging and tracing
+- `BEDROCK_MODEL_ID` - Claude model to use
+- `AWS_REGION` - AWS region for Bedrock
+- `WEATHER_API_TIMEOUT` - Request timeout in seconds
+
+### Config File
+
+The project includes `config.toml` with sensible defaults. To customize without modifying the tracked file:
+
+**Option 1: Local override file**
+```bash
+# Create local overrides (not tracked in git)
+cp config.toml config.local.toml
+# Edit config.local.toml with your changes
+```
+
+**Option 2: Environment variables**
+Environment variables take precedence over all config files.
+
+**Configuration priority (highest to lowest):**
+1. Environment variables
+2. `config.local.toml` (local overrides)
+3. `config.toml` (project defaults)
 
 ## Usage
 
 Run the application with:
 
 ```bash
-uv run main.py
+# Using the installed script
+uv run location-weather
+
+# Or directly
+uv run src/strands_location_service_weather/main.py
 ```
 
 For development mode with verbose logging and tracing:
 
 ```bash
-DEVELOPMENT=true uv run main.py
+DEVELOPMENT=true uv run location-weather
 ```
+
+## Development Workflow
+
+### Code Formatting
+
+This project uses Black and Ruff for code formatting and linting:
+
+```bash
+# Format code
+uv run black .
+
+# Check and fix linting issues
+uv run ruff check --fix .
+```
+
+**Before committing code, always run:**
+```bash
+uv run black .
+uv run ruff check --fix .
+git add .
+git commit -m "your message"
+```
+
+### Configuration
+
+- **Black**: Formats code to PEP 8 standards (88 character line length)
+- **Ruff**: Fast linter that catches style issues, unused imports, and applies modern Python patterns
+- **Target Python**: 3.10+ (required by strands-agents dependency)
 
 ## Features
 

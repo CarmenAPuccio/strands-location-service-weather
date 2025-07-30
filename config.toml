@@ -1,0 +1,25 @@
+# Configuration file for Strands Location Service Weather
+# This file contains default settings that work for most users
+# Create config.local.toml or use environment variables to override specific values
+
+[opentelemetry]
+service_name = "strands-location-service-weather"
+
+[bedrock]
+model_id = "anthropic.claude-3-sonnet-20240229-v1:0"
+region_name = "us-east-1"
+
+[weather_api]
+base_url = "https://api.weather.gov"
+user_agent_weather = "LocationWeatherService/1.0"
+user_agent_alerts = "LocationWeatherAlertsService/1.0"
+timeout = 30
+
+[mcp]
+command = "uvx"
+server_package = "awslabs.aws-location-mcp-server@latest"
+
+[ui]
+app_title = "PlaceFinder & Weather"
+welcome_message = "Ask about locations, routes, nearby places, or weather conditions."
+prompt_text = "How can I help you? "
