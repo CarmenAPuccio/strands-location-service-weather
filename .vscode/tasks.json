@@ -1,15 +1,35 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "install-dependencies",
-            "type": "shell",
-            "command": "uv",
-            "args": ["pip", "install", "-r", "requirements.txt"],
-            "presentation": {
-                "reveal": "silent"
-            },
-            "problemMatcher": []
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "install-dependencies",
+      "type": "shell",
+      "command": "uv",
+      "args": ["sync"],
+      "presentation": {
+        "reveal": "silent"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "install-dev-dependencies",
+      "type": "shell",
+      "command": "uv",
+      "args": ["sync", "--extra", "dev"],
+      "presentation": {
+        "reveal": "silent"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "run-app",
+      "type": "shell",
+      "command": "uv",
+      "args": ["run", "location-weather"],
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    }
+  ]
 }

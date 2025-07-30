@@ -5,7 +5,7 @@
             "name": "Debug main.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/main.py",
+            "program": "${workspaceFolder}/src/strands_location_service_weather/main.py",
             "cwd": "${workspaceFolder}",
             "justMyCode": false,
             "console": "integratedTerminal"
