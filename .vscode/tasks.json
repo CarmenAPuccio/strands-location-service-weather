@@ -1,0 +1,15 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "install-dependencies",
+            "type": "shell",
+            "command": "uv",
+            "args": ["pip", "install", "-r", "requirements.txt"],
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
