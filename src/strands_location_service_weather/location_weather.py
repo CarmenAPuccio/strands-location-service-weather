@@ -460,18 +460,16 @@ class LocationWeatherClient:
                                 "metrics.error", str(metrics_error)
                             )
 
-                    # Log the raw message returned by the model (like in the old version)
-                    logger.info("=== Model Raw Message ===")
-                    if hasattr(result, "message"):
-                        message_dict = dict(result.message)
-                        logger.info(json.dumps(message_dict, indent=2))
+                    # Log the raw message returned by the model in development mode only
+                    if config.opentelemetry.development_mode:
+                        logger.debug("=== Model Raw Message ===")
+                        if hasattr(result, "message"):
+                            message_dict = dict(result.message)
+                            logger.debug(json.dumps(message_dict, indent=2))
 
                 # Add response attributes to the span
                 response_str = str(result)
                 span.set_attribute("response_length", len(response_str))
-
-                # Log that we received a response (like in the old version)
-                logger.info("Received response")
 
                 return response_str
 

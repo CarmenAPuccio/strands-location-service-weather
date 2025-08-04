@@ -113,7 +113,7 @@ def main():
                 # Add attributes to the span
                 span.set_attribute("user.input", user_input)
                 span.set_attribute("response.length", len(str(response)))
-                logger.info(f"Response: {response}\n")
+                # Response is automatically printed by the strands library
         except Exception as e:
             logger.error("An error occurred. Please try again.")
             logger.error(f"Error processing input: {e}")
