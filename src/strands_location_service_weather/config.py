@@ -35,7 +35,7 @@ class WeatherAPIConfig:
     user_agent_weather: str = "LocationWeatherService/1.0"
     user_agent_alerts: str = "LocationWeatherAlertsService/1.0"
     accept_header: str = "application/geo+json"
-    timeout: int = 30
+    timeout: int = 10
 
 
 @dataclass

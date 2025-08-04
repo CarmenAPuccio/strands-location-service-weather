@@ -7,6 +7,8 @@ This project combines Amazon Location Service MCP Server with weather data to pr
 - **Location Services**: Search for places, get coordinates, calculate routes using Amazon Location Service
 - **Weather Data**: Current weather conditions and alerts from the National Weather Service
 - **Natural Language Processing**: Powered by Amazon Bedrock (Claude 3 Sonnet)
+- **MCP Server**: Compatible with Amazon Q CLI and other MCP clients using FastMCP
+- **High Performance**: Optimized HTTP session reuse and streamlined processing (~18s response time)
 - **Observability**: Full OpenTelemetry integration with tracing, logging, and metrics
 - **Error Handling**: Robust error handling with graceful degradation
 
@@ -64,7 +66,6 @@ Ask natural language questions like:
 - "Places near 47.6062,-122.3321"
 - "What's the weather in Trenton, NJ and are there any alerts?"
 - "What's it like in Philadelphia?"
-
 
 ## Project Structure
 
@@ -219,7 +220,9 @@ Key environment variables:
 - `DEVELOPMENT=true` - Enable verbose logging and tracing
 - `BEDROCK_MODEL_ID` - Claude model to use
 - `AWS_REGION` - AWS region for Bedrock
-- `WEATHER_API_TIMEOUT` - Request timeout in seconds
+- `WEATHER_API_TIMEOUT` - Request timeout in seconds (default: 10)
+- `FASTMCP_LOG_LEVEL` - FastMCP logging level (default: ERROR)
+
 
 ### Config File
 
@@ -244,6 +247,8 @@ Environment variables take precedence over all config files.
 
 ## Usage
 
+### Interactive CLI
+
 Run the application with:
 
 ```bash
@@ -259,6 +264,17 @@ For development mode with verbose logging and tracing:
 ```bash
 DEVELOPMENT=true uv run location-weather
 ```
+
+### MCP Server for Q CLI
+
+To use with Amazon Q CLI or other MCP clients:
+
+```bash
+# Run as MCP server
+uv run location-weather-mcp
+```
+
+See [MCP_SETUP.md](MCP_SETUP.md) for detailed Q CLI configuration instructions.
 
 ## Development Workflow
 

@@ -7,7 +7,8 @@
 │   └── strands_location_service_weather/
 │       ├── __init__.py           # Package initialization
 │       ├── main.py               # CLI entry point with OpenTelemetry setup
-│       └── location_weather.py   # Core module with unified client and tools
+│       ├── location_weather.py   # Core module with unified client and tools
+│       └── mcp_server.py         # FastMCP server for Q CLI integration
 ├── pyproject.toml                # Modern Python project configuration
 ├── README.md                     # Project documentation
 ├── LICENSE                       # Project license
@@ -31,8 +32,15 @@
 - **LocationWeatherClient**: Main client class for Bedrock integration
 - **Custom Tools**: `get_weather()` and `get_alerts()` for National Weather Service
 - **MCP Integration**: Automatic loading of Amazon Location Service tools
-- **System Prompt**: Comprehensive assistant instructions and guidelines
+- **System Prompt**: Optimized assistant instructions for fast processing
+- **HTTP Session Reuse**: Persistent session for weather API calls
 - **Observability**: Detailed span creation and metrics collection
+
+### src/strands_location_service_weather/mcp_server.py
+- **FastMCP Server**: Q CLI compatible MCP server implementation
+- **Tool Wrapper**: Exposes `ask_location_weather` tool for external clients
+- **Performance Optimized**: Pre-initialized client and timeout handling
+- **Error Handling**: Graceful degradation with user-friendly messages
 
 ## Code Organization Patterns
 

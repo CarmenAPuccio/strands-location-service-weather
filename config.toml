@@ -13,7 +13,7 @@ region_name = "us-east-1"
 base_url = "https://api.weather.gov"
 user_agent_weather = "LocationWeatherService/1.0"
 user_agent_alerts = "LocationWeatherAlertsService/1.0"
-timeout = 30
+timeout = 10
 
 [mcp]
 command = "uvx"

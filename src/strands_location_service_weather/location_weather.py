@@ -21,57 +21,21 @@ from .config import config
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
-# System prompt for the location and weather assistant
-system_prompt = """
-# Location Service Weather Assistant
+# Create a persistent HTTP session for better performance
+_http_session = requests.Session()
 
-You are an AI assistant that helps users find location information and weather conditions using Amazon Location Service and weather APIs.
+# Optimized system prompt - essential guidelines with clear response instructions
+system_prompt = """You are a location and weather assistant. Use available tools to find locations and provide weather information.
 
-## Capabilities
-- Search for places, businesses, and points of interest using Amazon Location Service
-- Get detailed information about specific places including coordinates, address, and category
-- Find places that are currently open near a location
-- Search for places near specific coordinates
-- Convert between addresses and geographic coordinates
-- Calculate routes between locations with turn-by-turn directions
-- Optimize travel routes with multiple waypoints
-- Provide current weather conditions for any location
-- Check for active weather alerts and warnings for a location
+When providing weather information, always check for and include: temperature, conditions, wind, and any active weather alerts or warnings.
 
-## Preferred Workflow
-1. When a user mentions a location, use Amazon Location Service tools to find and validate it
-2. For validated locations, provide relevant details (address, coordinates, etc.)
-3. Use the get_weather tool to fetch current weather conditions using the coordinates
-4. Check for any active weather alerts using the get_alerts tool when appropriate
-5. Present information in a clear, organized format with relevant details only
+For route queries, always check weather alerts at both the origin and destination locations for travel safety.
 
-## Tool Usage Guidelines
-- Always use the MCP tools from Amazon Location Service for location-related queries
-- Use the get_weather tool for weather information instead of making direct HTTP requests
-- Use the get_alerts tool to check for active weather alerts and warnings
-- For route calculations, use the calculate_route tool with appropriate travel modes
-- When optimizing routes with multiple stops, use the optimize_waypoints tool
+Tools: Use Amazon Location Service MCP tools for locations/routes, get_weather for conditions, get_alerts for warnings.
 
-## Response Format
-- Present location information in a structured format
-- Include coordinates in decimal degrees (e.g., 47.6062° N, 122.3321° W)
-- For weather, include temperature, conditions, and relevant forecast details
-- For routes, include distance, duration, and simplified directions
+Guidelines: Only provide information for public places. Respect privacy and prevent API abuse.
 
-## Guidelines
-<guidelines>
-- Do not use this service for continuous tracking or surveillance of individuals
-- Do not use for any illegal activities or to facilitate harm
-- Respect user privacy and do not store or share location data
-- Do not use for military applications or critical infrastructure without proper authorization
-- Limit requests to reasonable volumes to prevent API abuse
-- Do not attempt to bypass AWS service quotas or limitations
-- Only provide weather and location information for public places
-- Do not use to circumvent geofencing or location-based restrictions
-- Respect terms of service for all underlying APIs
-- Do not use for automated systems without proper rate limiting
-</guidelines>
-"""
+Be concise and helpful."""
 
 # Get a tracer for this module
 tracer = trace.get_tracer(__name__)
@@ -129,7 +93,7 @@ def get_weather(latitude: float, longitude: float) -> dict[str, Any]:
                 )
                 grid_span.set_attribute("url", points_url)
 
-                points_response = requests.get(
+                points_response = _http_session.get(
                     points_url, headers=headers, timeout=config.weather_api.timeout
                 )
                 grid_span.set_attribute("status_code", points_response.status_code)
@@ -152,7 +116,7 @@ def get_weather(latitude: float, longitude: float) -> dict[str, Any]:
             with tracer.start_as_current_span("get_forecast") as forecast_span:
                 forecast_span.set_attribute("url", forecast_url)
 
-                forecast_response = requests.get(
+                forecast_response = _http_session.get(
                     forecast_url, headers=headers, timeout=config.weather_api.timeout
                 )
                 forecast_span.set_attribute(
@@ -238,7 +202,7 @@ def get_alerts(latitude: float, longitude: float) -> list[dict[str, Any]]:
                 )
                 zone_span.set_attribute("url", points_url)
                 logger.debug(f"Requesting zone data from: {points_url}")
-                points_response = requests.get(
+                points_response = _http_session.get(
                     points_url, headers=headers, timeout=config.weather_api.timeout
                 )
                 zone_span.set_attribute("status_code", points_response.status_code)
@@ -269,7 +233,7 @@ def get_alerts(latitude: float, longitude: float) -> list[dict[str, Any]]:
                 )
                 alerts_span.set_attribute("url", alerts_url)
                 logger.debug(f"Requesting alerts data from: {alerts_url}")
-                alerts_response = requests.get(
+                alerts_response = _http_session.get(
                     alerts_url, headers=headers, timeout=config.weather_api.timeout
                 )
                 alerts_span.set_attribute("status_code", alerts_response.status_code)

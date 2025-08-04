@@ -9,6 +9,8 @@ A location-based weather information service that combines Amazon Location Servi
 - **Location Services**: Search places, get coordinates, calculate routes using Amazon Location Service
 - **Weather Data**: Current conditions and alerts from National Weather Service API
 - **Natural Language Interface**: Conversational queries powered by Amazon Bedrock
+- **High Performance**: Optimized for ~15-20 second response times via HTTP session reuse
+- **Q CLI Integration**: FastMCP server compatible with Amazon Q CLI
 - **Observability**: Comprehensive OpenTelemetry integration with tracing and metrics
 - **MCP Integration**: Uses Model Context Protocol for Amazon Location Service tools
 

@@ -13,8 +13,9 @@
 
 - `strands-agents`: Core agent framework for Bedrock integration
 - `strands-agents-tools`: Additional tooling including MCP client
-- `requests`: HTTP client for weather API calls
+- `requests`: HTTP client for weather API calls (with session reuse optimization)
 - `boto3`: AWS SDK for Bedrock services
+- `fastmcp`: FastMCP framework for MCP server implementation
 - `opentelemetry-*`: Full observability stack
 
 ## Build System
@@ -30,10 +31,13 @@ uv sync
 # Install with development tools (Black, Ruff)
 uv sync --extra dev
 
-# Run the application
+# Run the application (interactive CLI)
 uv run location-weather
 # or
 uv run src/strands_location_service_weather/main.py
+
+# Run as MCP server (for Q CLI integration)
+uv run location-weather-mcp
 
 # Development mode with verbose logging and tracing
 DEVELOPMENT=true uv run location-weather
@@ -70,7 +74,8 @@ The application uses a layered configuration system:
 - `DEVELOPMENT=true`: Enables verbose logging, console span export, and detailed trace output
 - `BEDROCK_MODEL_ID`: Claude model to use (default: claude-3-sonnet)
 - `AWS_REGION`: AWS region for Bedrock (default: us-east-1)
-- `WEATHER_API_TIMEOUT`: Request timeout in seconds (default: 30)
+- `WEATHER_API_TIMEOUT`: Request timeout in seconds (default: 10)
+- `FASTMCP_LOG_LEVEL`: FastMCP logging level for MCP server mode (default: ERROR)
 - `OTEL_SERVICE_NAME`: OpenTelemetry service name
 - AWS credentials required for Bedrock access (via standard AWS credential chain)
 - No additional API keys needed (uses public National Weather Service API)
