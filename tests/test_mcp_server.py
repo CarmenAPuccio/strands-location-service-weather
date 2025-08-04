@@ -2,7 +2,6 @@
 Test FastMCP server functionality.
 """
 
-import pytest
 from unittest.mock import Mock, patch
 
 from src.strands_location_service_weather.mcp_server import get_client

@@ -2,15 +2,12 @@
 Test performance optimizations and benchmarks.
 """
 
-import pytest
 import time
-import responses
-from unittest.mock import patch
 
-from src.strands_location_service_weather.location_weather import (
-    get_weather,
-    _http_session,
-)
+import pytest
+import responses
+
+from src.strands_location_service_weather.location_weather import get_weather
 
 
 class TestPerformanceOptimizations:
@@ -40,7 +37,7 @@ class TestPerformanceOptimizations:
         )
 
         start_time = time.time()
-        result = get_weather(47.6062, -122.3321)
+        get_weather(47.6062, -122.3321)
         elapsed = time.time() - start_time
 
         # Should complete quickly due to 10s timeout

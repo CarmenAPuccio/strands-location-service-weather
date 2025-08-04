@@ -2,9 +2,10 @@
 Pytest configuration and shared fixtures.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
 import responses
-from unittest.mock import Mock, patch
 
 from src.strands_location_service_weather.location_weather import LocationWeatherClient
 

@@ -6,6 +6,7 @@ This creates a FastMCP server that wraps the existing LocationWeatherClient.
 
 import os
 import sys
+
 from fastmcp import FastMCP
 
 from .location_weather import LocationWeatherClient

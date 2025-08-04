@@ -3,7 +3,6 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 try:
     import tomllib  # Python 3.11+
@@ -73,7 +72,7 @@ class AppConfig:
     ui: UIConfig
 
     @classmethod
-    def load(cls, config_file: Optional[Path] = None) -> "AppConfig":
+    def load(cls, config_file: Path | None = None) -> "AppConfig":
         """Load configuration from environment variables and optional config file.
 
         Args:

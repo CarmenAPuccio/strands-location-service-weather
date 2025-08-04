@@ -2,9 +2,6 @@
 Test LocationWeatherClient integration and behavior.
 """
 
-import pytest
-from unittest.mock import Mock, patch
-
 from src.strands_location_service_weather.location_weather import LocationWeatherClient
 
 
@@ -27,7 +24,7 @@ class TestLocationWeatherClient:
     def test_client_with_custom_model_id(self, mock_bedrock_model, mock_mcp_client):
         """Test client initialization with custom model ID."""
         custom_model = "anthropic.claude-3-haiku-20240307-v1:0"
-        client = LocationWeatherClient(model_id=custom_model)
+        LocationWeatherClient(model_id=custom_model)
 
         # Verify custom model ID was used
         mock_bedrock_model.assert_called_with(

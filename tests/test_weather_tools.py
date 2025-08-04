@@ -2,13 +2,11 @@
 Test weather tool functions (get_weather, get_alerts).
 """
 
-import pytest
 import responses
-from unittest.mock import patch
 
 from src.strands_location_service_weather.location_weather import (
-    get_weather,
     get_alerts,
+    get_weather,
 )
 
 

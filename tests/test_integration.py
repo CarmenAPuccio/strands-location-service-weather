@@ -2,8 +2,9 @@
 Integration tests for end-to-end functionality.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 import responses
 
 from src.strands_location_service_weather.location_weather import LocationWeatherClient
@@ -51,8 +52,8 @@ class TestIntegration:
     def test_tool_registration(self):
         """Test that all required tools are registered."""
         from src.strands_location_service_weather.location_weather import (
-            get_weather,
             get_alerts,
+            get_weather,
         )
 
         # Verify tools are callable
@@ -87,14 +88,14 @@ class TestErrorHandling:
         """Test handling of Bedrock/Agent errors."""
         mock_agent.side_effect = Exception("Bedrock service unavailable")
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             LocationWeatherClient()
 
     def test_invalid_coordinates_handling(self):
         """Test handling of invalid coordinate inputs."""
         from src.strands_location_service_weather.location_weather import (
-            get_weather,
             get_alerts,
+            get_weather,
         )
 
         # Test with None values
