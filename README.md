@@ -1,7 +1,6 @@
 # Strands Location Service Weather
 
-[![CI](https://github.com/CarmenAPuccio/strands-location-service-weather/workflows/CI/badge.svg)](https://github.com/CarmenAPuccio/strands-location-service-weather/actions)
-[![Coverage](https://codecov.io/gh/CarmenAPuccio/strands-location-service-weather/branch/main/graph/badge.svg)](https://codecov.io/gh/CarmenAPuccio/strands-location-service-weather)
+[![CI](https://github.com/CarmenAPuccio/strands-location-service-weather/actions/workflows/ci.yml/badge.svg)](https://github.com/CarmenAPuccio/strands-location-service-weather/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
