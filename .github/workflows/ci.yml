@@ -1,117 +1,117 @@
 name: CI
 
 on:
-  push:
-    branches: [ main, develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main]
+  push:
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.13"]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        version: "latest"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
 
-    - name: Set up Python ${{ matrix.python-version }}
-      run: uv python install ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      run: |
-        uv sync --extra dev
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev
 
-    - name: Lint with ruff
-      run: |
-        uv run ruff check .
+      - name: Lint with ruff
+        run: |
+          uv run ruff check .
 
-    - name: Format check with black
-      run: |
-        uv run black --check .
+      - name: Format check with black
+        run: |
+          uv run black --check .
 
-    - name: Run fast tests
-      run: |
-        uv run pytest -m "not slow" --cov=src --cov-report=xml --cov-report=term-missing
+      - name: Run fast tests
+        run: |
+          uv run pytest -m "not slow" --cov=src --cov-report=xml --cov-report=term-missing
 
-    - name: Run all tests (including slow ones)
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: |
-        uv run pytest --cov=src --cov-report=xml --cov-report=term-missing
+      - name: Run all tests (including slow ones)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          uv run pytest --cov=src --cov-report=xml --cov-report=term-missing
 
-    - name: Upload coverage to Codecov
-      if: matrix.python-version == '3.11'
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
 
   security:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
 
-    - name: Set up Python
-      run: uv python install 3.11
+      - name: Set up Python
+        run: uv python install 3.11
 
-    - name: Install dependencies
-      run: uv sync --extra dev
+      - name: Install dependencies
+        run: uv sync --extra dev
 
-    - name: Run security checks
-      run: |
-        # Check for known security vulnerabilities
-        uv run pip-audit --desc --format=json || true
+      - name: Run security checks
+        run: |
+          # Check for known security vulnerabilities
+          uv run pip-audit --desc --format=json || true
 
   type-check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
 
-    - name: Set up Python
-      run: uv python install 3.11
+      - name: Set up Python
+        run: uv python install 3.11
 
-    - name: Install dependencies
-      run: uv sync --extra dev
+      - name: Install dependencies
+        run: uv sync --extra dev
 
-    - name: Type check with mypy (if you add it later)
-      run: |
-        # uv run mypy src/
-        echo "Type checking placeholder - add mypy when ready"
+      - name: Type check with mypy (if you add it later)
+        run: |
+          # uv run mypy src/
+          echo "Type checking placeholder - add mypy when ready"
 
   build:
     runs-on: ubuntu-latest
     needs: [test, security]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
+
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
 
-    - name: Set up Python
-      run: uv python install 3.11
+      - name: Set up Python
+        run: uv python install 3.11
 
-    - name: Build package
-      run: |
-        uv build
+      - name: Build package
+        run: |
+          uv build
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: dist
-        path: dist/
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
