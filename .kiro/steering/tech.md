@@ -41,6 +41,15 @@ uv run location-weather-mcp
 
 # Development mode with verbose logging and tracing
 DEVELOPMENT=true uv run location-weather
+
+# Run tests
+uv run pytest
+
+# Run tests with coverage
+uv run pytest --cov=src
+
+# Run only fast tests (skip slow benchmarks)
+uv run pytest -m "not slow"
 ```
 
 ### Development Workflow

@@ -1,0 +1,52 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  quick-checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Set up Python
+      run: uv python install 3.11
+
+    - name: Install dependencies
+      run: uv sync --extra dev
+
+    - name: Code formatting check
+      run: |
+        uv run black --check --diff .
+
+    - name: Linting check
+      run: |
+        uv run ruff check .
+
+    - name: Fast tests only (for quick feedback)
+      run: |
+        uv run pytest -m "not slow" --tb=short
+
+  performance-check:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'performance')
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Set up Python
+      run: uv python install 3.11
+
+    - name: Install dependencies
+      run: uv sync --extra dev
+
+    - name: Run performance tests
+      run: |
+        uv run pytest tests/test_performance.py -v
+

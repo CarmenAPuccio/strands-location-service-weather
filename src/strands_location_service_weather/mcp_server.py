@@ -6,6 +6,7 @@ This creates a FastMCP server that wraps the existing LocationWeatherClient.
 
 import os
 import sys
+
 from fastmcp import FastMCP
 
 from .location_weather import LocationWeatherClient
@@ -13,9 +14,7 @@ from .location_weather import LocationWeatherClient
 # Initialize FastMCP server with performance optimizations
 mcp = FastMCP(
     "Location Weather Service",
-    log_level=os.getenv("FASTMCP_LOG_LEVEL", "ERROR"),  # Reduce logging overhead
-    debug=os.getenv("DEVELOPMENT", "false").lower() == "true",  # Debug only in dev
-    # Note: cache_expiration_seconds not used since Q CLI spawns new processes
+    # Note: log_level and debug moved to run() call per FastMCP 2.x
     mask_error_details=False,  # Keep detailed errors for debugging
 )
 
@@ -122,7 +121,10 @@ def ask_location_weather(query: str) -> str:
 
 def run_mcp_server():
     """Run the FastMCP server."""
-    mcp.run()
+    mcp.run(
+        log_level=os.getenv("FASTMCP_LOG_LEVEL", "ERROR"),
+        debug=os.getenv("DEVELOPMENT", "false").lower() == "true",
+    )
 
 
 if __name__ == "__main__":
