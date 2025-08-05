@@ -121,10 +121,7 @@ def ask_location_weather(query: str) -> str:
 
 def run_mcp_server():
     """Run the FastMCP server."""
-    mcp.run(
-        log_level=os.getenv("FASTMCP_LOG_LEVEL", "ERROR"),
-        debug=os.getenv("DEVELOPMENT", "false").lower() == "true",
-    )
+    mcp.run()
 
 
 if __name__ == "__main__":
