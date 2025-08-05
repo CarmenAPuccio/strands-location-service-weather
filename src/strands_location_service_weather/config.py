@@ -2,12 +2,21 @@
 
 import os
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 try:
     import tomllib  # Python 3.11+
 except ImportError:
     import tomli as tomllib  # Python < 3.11
+
+
+class DeploymentMode(Enum):
+    """Deployment mode options for the location weather service."""
+
+    LOCAL = "local"
+    MCP = "mcp"
+    AGENTCORE = "agentcore"
 
 
 @dataclass
@@ -46,6 +55,84 @@ class MCPConfig:
 
 
 @dataclass
+class AgentCoreConfig:
+    """AWS Bedrock AgentCore configuration."""
+
+    agent_id: str | None = None
+    agent_alias_id: str = "TSTALIASID"
+    session_id: str | None = None
+    enable_trace: bool = True
+
+
+@dataclass
+class GuardrailConfig:
+    """Bedrock Guardrails configuration."""
+
+    guardrail_id: str | None = None
+    guardrail_version: str = "DRAFT"
+    enable_content_filtering: bool = True
+    enable_pii_detection: bool = True
+    enable_toxicity_detection: bool = True
+
+
+@dataclass
+class DeploymentConfig:
+    """Deployment mode configuration with mode-specific parameters."""
+
+    mode: DeploymentMode = DeploymentMode.LOCAL
+    bedrock_model_id: str = "anthropic.claude-3-sonnet-20240229-v1:0"
+    agentcore_agent_id: str | None = None
+    aws_region: str = "us-east-1"
+    enable_tracing: bool = True
+    timeout: int = 30
+
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        if self.mode == DeploymentMode.AGENTCORE and not self.agentcore_agent_id:
+            raise ValueError("agentcore_agent_id is required when mode is AGENTCORE")
+
+    @classmethod
+    def from_env_and_config(cls, config_data: dict) -> "DeploymentConfig":
+        """Create DeploymentConfig from environment variables and config data."""
+        # Get deployment mode from environment or config
+        mode_str = os.getenv(
+            "DEPLOYMENT_MODE", config_data.get("deployment", {}).get("mode", "local")
+        ).lower()
+
+        try:
+            mode = DeploymentMode(mode_str)
+        except ValueError as err:
+            raise ValueError(
+                f"Invalid deployment mode: {mode_str}. Must be one of: {[m.value for m in DeploymentMode]}"
+            ) from err
+
+        return cls(
+            mode=mode,
+            bedrock_model_id=os.getenv(
+                "BEDROCK_MODEL_ID",
+                config_data.get("deployment", {}).get(
+                    "bedrock_model_id", "anthropic.claude-3-sonnet-20240229-v1:0"
+                ),
+            ),
+            agentcore_agent_id=os.getenv(
+                "AGENTCORE_AGENT_ID",
+                config_data.get("deployment", {}).get("agentcore_agent_id"),
+            ),
+            aws_region=os.getenv(
+                "AWS_REGION",
+                config_data.get("deployment", {}).get("aws_region", "us-east-1"),
+            ),
+            enable_tracing=os.getenv("ENABLE_TRACING", "true").lower() == "true",
+            timeout=int(
+                os.getenv(
+                    "DEPLOYMENT_TIMEOUT",
+                    config_data.get("deployment", {}).get("timeout", 30),
+                )
+            ),
+        )
+
+
+@dataclass
 class UIConfig:
     """User interface configuration."""
 
@@ -70,6 +157,9 @@ class AppConfig:
     weather_api: WeatherAPIConfig
     mcp: MCPConfig
     ui: UIConfig
+    deployment: DeploymentConfig
+    agentcore: AgentCoreConfig
+    guardrail: GuardrailConfig
 
     @classmethod
     def load(cls, config_file: Path | None = None) -> "AppConfig":
@@ -170,12 +260,71 @@ class AppConfig:
             ),
         )
 
+        deployment_config = DeploymentConfig.from_env_and_config(config_data)
+
+        agentcore_config = AgentCoreConfig(
+            agent_id=os.getenv(
+                "AGENTCORE_AGENT_ID",
+                config_data.get("agentcore", {}).get("agent_id"),
+            ),
+            agent_alias_id=os.getenv(
+                "AGENTCORE_AGENT_ALIAS_ID",
+                config_data.get("agentcore", {}).get("agent_alias_id", "TSTALIASID"),
+            ),
+            session_id=os.getenv(
+                "AGENTCORE_SESSION_ID",
+                config_data.get("agentcore", {}).get("session_id"),
+            ),
+            enable_trace=os.getenv(
+                "AGENTCORE_ENABLE_TRACE",
+                str(config_data.get("agentcore", {}).get("enable_trace", True)),
+            ).lower()
+            == "true",
+        )
+
+        guardrail_config = GuardrailConfig(
+            guardrail_id=os.getenv(
+                "GUARDRAIL_ID",
+                config_data.get("guardrail", {}).get("guardrail_id"),
+            ),
+            guardrail_version=os.getenv(
+                "GUARDRAIL_VERSION",
+                config_data.get("guardrail", {}).get("guardrail_version", "DRAFT"),
+            ),
+            enable_content_filtering=os.getenv(
+                "GUARDRAIL_CONTENT_FILTERING",
+                str(
+                    config_data.get("guardrail", {}).get(
+                        "enable_content_filtering", True
+                    )
+                ),
+            ).lower()
+            == "true",
+            enable_pii_detection=os.getenv(
+                "GUARDRAIL_PII_DETECTION",
+                str(config_data.get("guardrail", {}).get("enable_pii_detection", True)),
+            ).lower()
+            == "true",
+            enable_toxicity_detection=os.getenv(
+                "GUARDRAIL_TOXICITY_DETECTION",
+                str(
+                    config_data.get("guardrail", {}).get(
+                        "enable_toxicity_detection", True
+                    )
+                ),
+            ).lower()
+            == "true",
+        )
+
         return cls(
             opentelemetry=otel_config,
             bedrock=bedrock_config,
             weather_api=weather_config,
             mcp=mcp_config,
             ui=ui_config,
+            deployment=deployment_config,
+            agentcore=agentcore_config,
+            guardrail=guardrail_config,
         )
 
 
