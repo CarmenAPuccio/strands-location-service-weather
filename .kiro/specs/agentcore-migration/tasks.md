@@ -38,7 +38,7 @@
 
 ## Phase 2: Tool Abstraction and Protocol Handling
 
-- [ ] 5. Implement Strands tool integration strategy
+- [x] 5. Implement Strands tool integration strategy
 
   - Verify existing `@tool` decorated functions work with `AgentCoreModel`
   - Create tool manager for mode-specific tool selection
@@ -51,9 +51,10 @@
   - Implement AgentCore-compliant Lambda handler template
   - Create Lambda functions for `get_weather` and `get_alerts` tools
   - Add proper event parsing and response formatting for AgentCore protocol
-  - Implement error handling and logging for Lambda functions
-  - Write unit tests for Lambda function event/response handling
-  - _Requirements: 2.1, 3.1, 3.2, 3.3_
+  - Implement error handling and logging for Lambda functions with OpenTelemetry integration
+  - Set up distributed tracing to maintain observability across AgentCore → Lambda calls
+  - Write unit tests for Lambda function event/response handling and trace propagation
+  - _Requirements: 2.1, 3.1, 3.2, 3.3, 9.1, 9.2_
 
 - [ ] 7. Generate OpenAPI schemas for action groups
 
@@ -63,12 +64,14 @@
   - Write tests for schema compliance and validation
   - _Requirements: 2.4, 3.4_
 
-- [ ] 8. Implement protocol-specific error handling
+- [ ] 8. Implement protocol-specific error handling with observability
+
   - Create unified error handling strategy across Python/MCP/HTTP protocols
-  - Implement graceful degradation and fallback mechanisms
-  - Add consistent error response formatting
-  - Write tests for error scenarios in each deployment mode
-  - _Requirements: 8.5, Error handling from design_
+  - Implement graceful degradation and fallback mechanisms with proper trace context
+  - Add consistent error response formatting with OpenTelemetry error attributes
+  - Ensure error spans and metrics are captured across all deployment modes
+  - Write tests for error scenarios in each deployment mode including trace validation
+  - _Requirements: 8.5, 9.1, 9.3, Error handling from design_
 
 ## Phase 3: AgentCore Integration and Deployment
 
@@ -101,12 +104,14 @@
   - Write end-to-end tests for AgentCore deployment mode
   - _Requirements: 1.3, 2.2, 2.3_
 
-- [ ] 12. Add comprehensive monitoring and observability
-  - Maintain OpenTelemetry tracing across all deployment modes
-  - Add CloudWatch metrics for AgentCore Lambda functions
-  - Implement correlation between local and AgentCore traces
-  - Create monitoring dashboards and alerts
-  - Write tests for observability and metrics collection
+- [ ] 12. Enhance comprehensive monitoring and observability
+
+  - Validate OpenTelemetry tracing works end-to-end across all deployment modes (building on Phase 2 foundation)
+  - Add CloudWatch metrics integration for AgentCore Lambda functions
+  - Implement trace correlation between local client → AgentCore → Lambda execution
+  - Create monitoring dashboards showing performance across all three modes
+  - Add custom metrics for tool execution times and success rates
+  - Write tests for observability completeness and metrics accuracy
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
 ## Phase 4: Testing, Security, and Production Readiness

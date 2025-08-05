@@ -14,10 +14,10 @@ from mcp import StdioServerParameters, stdio_client
 from opentelemetry import trace
 from strands import Agent, tool
 from strands.tools.mcp import MCPClient
-from strands_tools import current_time
 
 from .config import DeploymentConfig, DeploymentMode, config
 from .model_factory import ModelFactory
+from .tool_manager import ToolManager
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -379,13 +379,39 @@ class LocationWeatherClient:
                 # Create model using factory
                 self._model = ModelFactory.create_model(self._deployment_config)
 
-                # Get tools for the deployment mode
+                # Get tools for the deployment mode with validation
                 all_tools = self._get_tools_for_mode(self._deployment_config.mode)
                 tool_count = len(all_tools)
                 logger.info(
                     f"Registered {tool_count} tools for {self._deployment_config.mode.value} mode"
                 )
                 span.set_attribute("tool_count", tool_count)
+
+                # Validate tools for the current deployment mode
+                tool_manager = ToolManager()
+                validation_results = tool_manager.validate_tools_for_mode(
+                    self._deployment_config.mode
+                )
+
+                # Log validation results
+                valid_tools = sum(1 for r in validation_results if r.valid)
+                invalid_tools = len(validation_results) - valid_tools
+
+                if invalid_tools > 0:
+                    logger.warning(
+                        f"Tool validation found {invalid_tools} invalid tools for {self._deployment_config.mode.value} mode"
+                    )
+                    for result in validation_results:
+                        if not result.valid:
+                            logger.error(
+                                f"Tool {result.tool_name} validation failed: {result.error_message}"
+                            )
+                        elif result.warnings:
+                            for warning in result.warnings:
+                                logger.warning(f"Tool {result.tool_name}: {warning}")
+
+                span.set_attribute("valid_tools", valid_tools)
+                span.set_attribute("invalid_tools", invalid_tools)
 
                 # Use the provided system prompt or the default one
                 prompt_to_use = (
@@ -458,28 +484,18 @@ class LocationWeatherClient:
     def _get_tools_for_mode(self, mode: DeploymentMode) -> list:
         """Get appropriate tools based on deployment mode.
 
+        This method implements the Strands tool integration strategy with
+        mode-specific tool selection as defined in requirements 8.1, 8.2, 8.3.
+
         Args:
             mode: Deployment mode
 
         Returns:
             List of tools for the specified mode
         """
-        # Base tools available in all modes
-        base_tools = [current_time, get_weather, get_alerts]
-
-        if mode == DeploymentMode.AGENTCORE:
-            # For AgentCore mode, external tools (like location services) are typically
-            # configured as Action Groups within the AgentCore agent definition
-            # The agent handles tool orchestration internally via the AgentCore runtime
-            # We still provide base weather tools as they're custom to this application
-            logger.info(
-                "Using base tools for AgentCore mode (location services handled by AgentCore action groups)"
-            )
-            return base_tools
-        else:
-            # For LOCAL and MCP modes, include all MCP tools for location services
-            logger.info("Including MCP tools for local/MCP mode")
-            return base_tools + mcp_tools
+        # Use the ToolManager for consistent tool selection across modes
+        tool_manager = ToolManager()
+        return tool_manager.get_tools_for_mode(mode)
 
     def chat(self, prompt: str) -> str:
         """Process a user prompt through the agent.
@@ -630,6 +646,56 @@ class LocationWeatherClient:
             tools_count=tools_count,
         )
 
+    def get_tool_validation_info(self) -> dict[str, Any]:
+        """Get tool validation information for the current deployment mode.
+
+        Returns:
+            Dictionary with tool validation details
+        """
+        logger.info("Getting tool validation information")
+
+        try:
+            tool_manager = ToolManager()
+            validation_results = tool_manager.validate_tools_for_mode(
+                self._deployment_config.mode
+            )
+
+            # Organize results
+            valid_tools = [r for r in validation_results if r.valid]
+            invalid_tools = [r for r in validation_results if not r.valid]
+            tools_with_warnings = [r for r in validation_results if r.warnings]
+
+            return {
+                "deployment_mode": self._deployment_config.mode.value,
+                "total_tools": len(validation_results),
+                "valid_tools": len(valid_tools),
+                "invalid_tools": len(invalid_tools),
+                "tools_with_warnings": len(tools_with_warnings),
+                "validation_details": [
+                    {
+                        "tool_name": r.tool_name,
+                        "valid": r.valid,
+                        "protocol": r.protocol.value,
+                        "error_message": r.error_message,
+                        "warnings": r.warnings,
+                    }
+                    for r in validation_results
+                ],
+                "protocol_info": tool_manager.get_protocol_info(
+                    tool_manager._get_protocol_for_mode(self._deployment_config.mode)
+                ),
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get tool validation info: {str(e)}")
+            return {
+                "deployment_mode": self._deployment_config.mode.value,
+                "error": str(e),
+                "total_tools": 0,
+                "valid_tools": 0,
+                "invalid_tools": 0,
+            }
+
     def health_check(self) -> HealthStatus:
         """Perform health check on the client and its components.
 
@@ -642,11 +708,22 @@ class LocationWeatherClient:
             # Check model health
             model_healthy = ModelFactory.health_check(self._model)
 
-            # Check tools availability
+            # Check tools availability and validation
             tools_available = True
             try:
                 tools = self._get_tools_for_mode(self._deployment_config.mode)
                 tools_available = len(tools) > 0
+
+                # Also check tool validation
+                if tools_available:
+                    tool_manager = ToolManager()
+                    validation_results = tool_manager.validate_tools_for_mode(
+                        self._deployment_config.mode
+                    )
+                    # Consider tools available only if at least some are valid
+                    valid_tools = sum(1 for r in validation_results if r.valid)
+                    tools_available = valid_tools > 0
+
             except Exception as e:
                 logger.warning(f"Tools availability check failed: {e}")
                 tools_available = False
@@ -660,7 +737,7 @@ class LocationWeatherClient:
                 if not model_healthy:
                     error_details.append("model unhealthy")
                 if not tools_available:
-                    error_details.append("tools unavailable")
+                    error_details.append("tools unavailable or invalid")
                 error_message = f"Health check failed: {', '.join(error_details)}"
 
             return HealthStatus(
