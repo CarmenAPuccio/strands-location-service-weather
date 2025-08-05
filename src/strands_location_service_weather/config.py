@@ -66,13 +66,125 @@ class AgentCoreConfig:
 
 @dataclass
 class GuardrailConfig:
-    """Bedrock Guardrails configuration."""
+    """Bedrock Guardrails configuration for location service use case."""
 
     guardrail_id: str | None = None
     guardrail_version: str = "DRAFT"
     enable_content_filtering: bool = True
     enable_pii_detection: bool = True
     enable_toxicity_detection: bool = True
+    # Location service specific: Allow ADDRESS PII for location queries
+    blocked_pii_types: list[str] = None
+    allowed_pii_types: list[str] = None
+    content_filter_strength: str = "HIGH"
+    pii_filter_strength: str = "HIGH"
+    toxicity_filter_strength: str = "HIGH"
+
+    def __post_init__(self):
+        """Set default PII configuration for location services."""
+        if self.blocked_pii_types is None:
+            # Block sensitive PII but allow ADDRESS for location services
+            self.blocked_pii_types = [
+                "PHONE",
+                "EMAIL",
+                "CREDIT_DEBIT_CARD_NUMBER",
+                "SSN",
+                "BANK_ACCOUNT_NUMBER",
+                "BANK_ROUTING",
+                "PASSPORT_NUMBER",
+                "DRIVER_ID",
+                "LICENSE_PLATE",
+                "VEHICLE_VIN",
+                "USERNAME",
+                "PASSWORD",
+                "PIN",
+                "NAME",  # Block personal names for privacy
+            ]
+
+        if self.allowed_pii_types is None:
+            # Explicitly allow only location-related PII for weather/location service
+            self.allowed_pii_types = [
+                "ADDRESS",
+                "US_STATE",
+                "CITY",
+                "ZIP_CODE",
+                "COUNTRY",
+            ]
+
+    def get_pii_entities_config(self) -> list[dict[str, str]]:
+        """Generate PII entities configuration for Bedrock Guardrails."""
+        pii_config = []
+
+        # Add blocked PII types
+        for pii_type in self.blocked_pii_types:
+            pii_config.append({"type": pii_type, "action": "BLOCK"})
+
+        # Note: Bedrock Guardrails doesn't have explicit "ALLOW" action
+        # Instead, we exclude ADDRESS-related PII from the blocked list
+        # This is handled by not including them in blocked_pii_types
+
+        return pii_config
+
+    def get_content_filters_config(self) -> list[dict[str, str]]:
+        """Generate content filters configuration for Bedrock Guardrails."""
+        return [
+            {
+                "type": "SEXUAL",
+                "inputStrength": self.content_filter_strength,
+                "outputStrength": self.content_filter_strength,
+            },
+            {
+                "type": "VIOLENCE",
+                "inputStrength": self.content_filter_strength,
+                "outputStrength": self.content_filter_strength,
+            },
+            {
+                "type": "HATE",
+                "inputStrength": self.content_filter_strength,
+                "outputStrength": self.content_filter_strength,
+            },
+            {
+                "type": "INSULTS",
+                "inputStrength": "MEDIUM",  # Less strict for insults
+                "outputStrength": "MEDIUM",
+            },
+            {
+                "type": "MISCONDUCT",
+                "inputStrength": self.content_filter_strength,
+                "outputStrength": self.content_filter_strength,
+            },
+        ]
+
+    def validate(self) -> list[str]:
+        """Validate guardrail configuration and return any errors."""
+        errors = []
+
+        if self.enable_content_filtering and not self.content_filter_strength:
+            errors.append(
+                "content_filter_strength is required when content filtering is enabled"
+            )
+
+        if self.enable_pii_detection and not self.pii_filter_strength:
+            errors.append(
+                "pii_filter_strength is required when PII detection is enabled"
+            )
+
+        if self.enable_toxicity_detection and not self.toxicity_filter_strength:
+            errors.append(
+                "toxicity_filter_strength is required when toxicity detection is enabled"
+            )
+
+        valid_strengths = ["LOW", "MEDIUM", "HIGH"]
+        if self.content_filter_strength not in valid_strengths:
+            errors.append(f"content_filter_strength must be one of {valid_strengths}")
+
+        if self.pii_filter_strength not in valid_strengths:
+            errors.append(f"pii_filter_strength must be one of {valid_strengths}")
+
+        if self.toxicity_filter_strength not in valid_strengths:
+            errors.append(f"toxicity_filter_strength must be one of {valid_strengths}")
+
+        return errors
 
 
 @dataclass
@@ -314,6 +426,20 @@ class AppConfig:
                 ),
             ).lower()
             == "true",
+            content_filter_strength=os.getenv(
+                "GUARDRAIL_CONTENT_FILTER_STRENGTH",
+                config_data.get("guardrail", {}).get("content_filter_strength", "HIGH"),
+            ),
+            pii_filter_strength=os.getenv(
+                "GUARDRAIL_PII_FILTER_STRENGTH",
+                config_data.get("guardrail", {}).get("pii_filter_strength", "HIGH"),
+            ),
+            toxicity_filter_strength=os.getenv(
+                "GUARDRAIL_TOXICITY_FILTER_STRENGTH",
+                config_data.get("guardrail", {}).get(
+                    "toxicity_filter_strength", "HIGH"
+                ),
+            ),
         )
 
         return cls(

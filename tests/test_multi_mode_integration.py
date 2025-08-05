@@ -3,14 +3,15 @@ Integration tests for multi-mode LocationWeatherClient functionality.
 Tests comparing responses across LOCAL, MCP, and AGENTCORE deployment modes.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+
+from strands_location_service_weather.config import DeploymentMode
 from strands_location_service_weather.location_weather import (
-    LocationWeatherClient,
-    DeploymentInfo,
     HealthStatus,
+    LocationWeatherClient,
 )
-from strands_location_service_weather.config import DeploymentMode, DeploymentConfig
 from strands_location_service_weather.model_factory import ModelCreationError
 
 

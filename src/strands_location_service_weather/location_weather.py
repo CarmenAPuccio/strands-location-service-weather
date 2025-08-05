@@ -7,18 +7,17 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional, Dict, Union
+from typing import Any
 
 import requests
 from mcp import StdioServerParameters, stdio_client
 from opentelemetry import trace
 from strands import Agent, tool
-from strands.models import BedrockModel
 from strands.tools.mcp import MCPClient
 from strands_tools import current_time
 
-from .config import config, DeploymentMode, DeploymentConfig
-from .model_factory import ModelFactory, ModelCreationError
+from .config import DeploymentConfig, DeploymentMode, config
+from .model_factory import ModelFactory
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -320,8 +319,8 @@ class DeploymentInfo:
 
     mode: DeploymentMode
     model_type: str
-    model_id: Optional[str]
-    agent_id: Optional[str]
+    model_id: str | None
+    agent_id: str | None
     region: str
     tools_count: int
 
@@ -333,7 +332,7 @@ class HealthStatus:
     healthy: bool
     model_healthy: bool
     tools_available: bool
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 class LocationWeatherClient:
@@ -341,12 +340,12 @@ class LocationWeatherClient:
 
     def __init__(
         self,
-        deployment_mode: Optional[DeploymentMode] = None,
-        custom_system_prompt: Optional[str] = None,
-        config_override: Optional[Dict] = None,
+        deployment_mode: DeploymentMode | None = None,
+        custom_system_prompt: str | None = None,
+        config_override: dict | None = None,
         # Backward compatibility parameters
-        model_id: Optional[str] = None,
-        region_name: Optional[str] = None,
+        model_id: str | None = None,
+        region_name: str | None = None,
     ):
         """Initialize the client with multi-mode support.
 
@@ -409,10 +408,10 @@ class LocationWeatherClient:
 
     def _resolve_config(
         self,
-        deployment_mode: Optional[DeploymentMode],
-        config_override: Optional[Dict],
-        model_id: Optional[str],
-        region_name: Optional[str],
+        deployment_mode: DeploymentMode | None,
+        config_override: dict | None,
+        model_id: str | None,
+        region_name: str | None,
     ) -> DeploymentConfig:
         """Resolve deployment configuration from various sources.
 

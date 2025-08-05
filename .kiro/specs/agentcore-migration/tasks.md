@@ -29,7 +29,7 @@
   - Update .kiro/steering/tech.md with new configuration variables and usage patterns
   - _Requirements: 1.4, 1.5, 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 4. Set up Bedrock Guardrails configuration
+- [x] 4. Set up Bedrock Guardrails configuration
   - Create `GuardrailConfig` dataclass with content filtering settings
   - Implement guardrails configuration for location service use case (exclude ADDRESS from PII blocking)
   - Add guardrails validation and testing utilities
