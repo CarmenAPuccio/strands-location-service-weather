@@ -134,36 +134,47 @@ class ModelFactory:
             # if it's not available in the current Strands version
             from strands.models import AgentCoreModel
 
-            # AgentCore models should include additional configuration parameters
-            # based on AWS Bedrock AgentCore best practices
+            # AgentCore models follow AWS Bedrock AgentCore best practices
+            # Reference: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/
             model_params = {
                 "agent_id": config.agentcore_agent_id,
                 "region_name": config.aws_region,
             }
 
-            # Add optional AgentCore-specific parameters if available in config
+            # Add optional AgentCore-specific parameters following AWS best practices
             from .config import config as app_config
 
             if hasattr(app_config, "agentcore"):
                 agentcore_config = app_config.agentcore
 
-                # Add agent alias ID if specified (required for AgentCore)
+                # Agent alias ID is required for AgentCore invocation
+                # Default to TSTALIASID for testing, but should be configured for production
                 if agentcore_config.agent_alias_id:
                     model_params["agent_alias_id"] = agentcore_config.agent_alias_id
 
-                # Add session ID if specified (for session continuity)
+                # Session ID enables conversation continuity across invocations
+                # Should be unique per user session for proper context management
                 if agentcore_config.session_id:
                     model_params["session_id"] = agentcore_config.session_id
 
-                # Add tracing configuration (important for AgentCore monitoring)
+                # Enable tracing for AgentCore monitoring and debugging
+                # Recommended for production environments
                 if hasattr(agentcore_config, "enable_trace"):
                     model_params["enable_trace"] = agentcore_config.enable_trace
 
-            # Add guardrail configuration if available
+            # Guardrails can be applied at the agent level for content filtering
+            # This provides additional safety controls beyond model-level guardrails
             if hasattr(app_config, "guardrail") and app_config.guardrail.guardrail_id:
                 guardrail_config = app_config.guardrail
                 model_params["guardrail_id"] = guardrail_config.guardrail_id
                 model_params["guardrail_version"] = guardrail_config.guardrail_version
+                logger.info(
+                    f"Adding AgentCore guardrail configuration: {guardrail_config.guardrail_id}"
+                )
+
+            # Add timeout configuration for AgentCore invocations
+            if hasattr(config, "timeout") and config.timeout:
+                model_params["timeout"] = config.timeout
 
             logger.info(f"AgentCoreModel parameters: {model_params}")
             model = AgentCoreModel(**model_params)
@@ -172,7 +183,7 @@ class ModelFactory:
             return model
 
         except ImportError as e:
-            error_msg = "AgentCoreModel is not available in the current Strands version"
+            error_msg = "AgentCoreModel is not available in the current Strands version. Please ensure you have the latest strands-agents package with AgentCore support."
             logger.error(error_msg)
             raise ModelCreationError(error_msg) from e
 

@@ -228,6 +228,22 @@ Key environment variables:
 - `WEATHER_API_TIMEOUT` - Request timeout in seconds (default: 10)
 - `FASTMCP_LOG_LEVEL` - FastMCP logging level (default: ERROR)
 
+#### Multi-Mode Deployment Configuration
+
+The application supports multiple deployment modes for different use cases:
+
+- `DEPLOYMENT_MODE` - Deployment mode: `local`, `mcp`, or `agentcore` (default: `local`)
+- `AGENTCORE_AGENT_ID` - AWS Bedrock AgentCore agent ID (required for `agentcore` mode)
+- `AGENTCORE_AGENT_ALIAS_ID` - AgentCore agent alias ID (default: `TSTALIASID`)
+- `AGENTCORE_SESSION_ID` - AgentCore session ID for session continuity (optional)
+- `AGENTCORE_ENABLE_TRACE` - Enable AgentCore tracing (default: `true`)
+- `DEPLOYMENT_TIMEOUT` - Deployment-specific timeout in seconds (default: 30)
+- `GUARDRAIL_ID` - Bedrock Guardrail ID for content filtering (optional)
+- `GUARDRAIL_VERSION` - Guardrail version (default: `DRAFT`)
+- `GUARDRAIL_CONTENT_FILTERING` - Enable content filtering (default: `true`)
+- `GUARDRAIL_PII_DETECTION` - Enable PII detection (default: `true`)
+- `GUARDRAIL_TOXICITY_DETECTION` - Enable toxicity detection (default: `true`)
+
 
 ### Config File
 
@@ -249,6 +265,85 @@ Environment variables take precedence over all config files.
 1. Environment variables
 2. `config.local.toml` (local overrides)
 3. `config.toml` (project defaults)
+
+## Deployment Modes
+
+The application supports three deployment modes to accommodate different use cases:
+
+### LOCAL Mode (Default)
+- **Use Case**: Local development and testing
+- **Model**: Amazon Bedrock with direct API calls
+- **Tools**: Full MCP tools + custom weather tools
+- **Configuration**: Standard Bedrock model configuration
+
+```bash
+# Run in local mode (default)
+DEPLOYMENT_MODE=local uv run location-weather
+```
+
+### MCP Mode
+- **Use Case**: Integration with MCP-compatible clients
+- **Model**: Amazon Bedrock with MCP server interface
+- **Tools**: Full MCP tools + custom weather tools
+- **Configuration**: Same as LOCAL mode but optimized for MCP clients
+
+```bash
+# Run in MCP mode
+DEPLOYMENT_MODE=mcp uv run location-weather-mcp
+```
+
+### AGENTCORE Mode
+- **Use Case**: AWS Bedrock AgentCore integration with pre-configured agents
+- **Model**: AWS Bedrock AgentCore with agent runtime invocation
+- **Tools**: Base weather tools + AgentCore action groups for location services
+- **Configuration**: Requires AgentCore agent ID, alias, and optional session ID
+- **Architecture**: Location services configured as Action Groups within the AgentCore agent
+
+```bash
+# Run in AgentCore mode
+DEPLOYMENT_MODE=agentcore \
+AGENTCORE_AGENT_ID=your-agent-id \
+AGENTCORE_AGENT_ALIAS_ID=your-alias-id \
+AGENTCORE_SESSION_ID=unique-session-id \
+uv run location-weather
+```
+
+**AgentCore Setup Requirements:**
+- Pre-configured AgentCore agent with location service action groups
+- Proper IAM permissions for AgentCore invocation
+- Action groups configured for Amazon Location Service APIs
+- Optional guardrails for content filtering
+
+### Mode-Specific Configuration
+
+Each mode can be configured programmatically:
+
+```python
+from strands_location_service_weather import LocationWeatherClient, DeploymentMode
+
+# Local mode (default)
+client = LocationWeatherClient(deployment_mode=DeploymentMode.LOCAL)
+
+# MCP mode
+client = LocationWeatherClient(deployment_mode=DeploymentMode.MCP)
+
+# AgentCore mode with configuration
+client = LocationWeatherClient(
+    deployment_mode=DeploymentMode.AGENTCORE,
+    config_override={
+        "agentcore_agent_id": "your-agent-id",
+        "aws_region": "us-east-1"
+    }
+)
+
+# Get deployment information
+info = client.get_deployment_info()
+print(f"Mode: {info.mode}, Model: {info.model_type}, Tools: {info.tools_count}")
+
+# Health check
+health = client.health_check()
+print(f"Healthy: {health.healthy}, Model OK: {health.model_healthy}")
+```
 
 ## Usage
 
