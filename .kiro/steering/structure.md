@@ -11,7 +11,10 @@
 │       ├── mcp_server.py         # FastMCP server for Q CLI integration
 │       ├── config.py             # Multi-mode deployment configuration
 │       ├── model_factory.py      # Model factory for Bedrock/AgentCore selection
-│       └── tool_manager.py       # Tool management and validation
+│       ├── tool_manager.py       # Tool management and validation
+│       ├── openapi_schemas.py    # OpenAPI 3.0 schema generation for action groups
+│       ├── schema_validation.py  # Schema validation utilities and compliance checking
+│       └── schema_cli.py         # CLI utility for schema generation and validation
 ├── infrastructure/               # AWS infrastructure and deployment
 │   ├── lambda_functions/         # Lambda function implementations
 │   │   ├── shared/              # Shared Lambda utilities
@@ -19,11 +22,16 @@
 │   │   │   └── requirements.txt  # Lambda dependencies
 │   │   ├── get_weather/         # Weather tool Lambda function
 │   │   └── get_alerts/          # Weather alerts Lambda function
+│   ├── schemas/                  # Generated OpenAPI schemas for action groups
+│   │   ├── weather_action_group.json    # Weather services OpenAPI schema
+│   │   ├── location_action_group.json   # Location services OpenAPI schema
+│   │   └── validation_report.md         # Schema validation report
 │   └── lambda_deployment_guide.md # Lambda deployment documentation
 ├── tests/                        # Test suite
 │   ├── conftest.py              # Pytest configuration and fixtures
 │   ├── test_*.py                # Unit and integration tests
-│   └── test_lambda_handler.py   # Lambda function tests
+│   ├── test_lambda_handler.py   # Lambda function tests
+│   └── test_openapi_schemas.py  # OpenAPI schema generation and validation tests
 ├── pyproject.toml                # Modern Python project configuration
 ├── README.md                     # Project documentation
 ├── LICENSE                       # Project license
@@ -82,6 +90,27 @@
 - **Protocol Handling**: MCP vs Python direct tool execution
 - **Tool Validation**: Ensures tools are properly decorated and functional
 - **Error Handling**: Unified error handling across tool protocols
+
+#### src/strands_location_service_weather/openapi_schemas.py
+- **OpenAPI Schema Generation**: Automatic conversion of Python functions to OpenAPI 3.0 schemas
+- **Type Inference**: Supports complex types (Optional, List, Dict, Union) with proper OpenAPI mapping
+- **Action Group Schemas**: Pre-built schemas for weather and location service action groups
+- **Export Functionality**: JSON export with validation and error handling
+- **AgentCore Compliance**: Ensures schemas meet AWS Bedrock AgentCore requirements
+
+#### src/strands_location_service_weather/schema_validation.py
+- **OpenAPI Validator**: Comprehensive validation against OpenAPI 3.0 specification
+- **AgentCore Validation**: Specific validation rules for AWS Bedrock AgentCore compatibility
+- **Tool Schema Validation**: Validates parameter and return schemas for individual tools
+- **Detailed Reporting**: Error and warning reporting with context and suggestions
+- **Configurable Validation**: Adjustable validation strictness and rule sets
+
+#### src/strands_location_service_weather/schema_cli.py
+- **CLI Interface**: Complete command-line tool for schema operations
+- **Generation Commands**: Generate, export, and validate schemas
+- **Reporting**: Comprehensive validation reports in markdown format
+- **File Operations**: Validate individual schema files and batch operations
+- **Developer Tools**: List schemas, show specific schemas, and validation utilities
 
 ### Infrastructure Components
 

@@ -2,7 +2,8 @@
 Tool manager for handling mode-specific tool selection and validation.
 
 This module implements the Strands tool integration strategy for multi-mode deployment,
-ensuring consistent tool behavior across LOCAL, MCP, and AGENTCORE modes.
+ensuring consistent tool behavior across LOCAL, MCP, and AGENTCORE modes with
+comprehensive error handling and OpenTelemetry observability.
 """
 
 import logging
@@ -12,11 +13,17 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from opentelemetry import trace
+
 # We'll define current_time locally to ensure proper @tool decoration
 from .config import DeploymentMode
+from .error_handling import ErrorHandlerFactory, create_error_context
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
+
+# Get tracer for OpenTelemetry spans
+tracer = trace.get_tracer(__name__)
 
 
 class ToolProtocol(Enum):
@@ -171,34 +178,75 @@ class PythonDirectAdapter(ToolProtocolAdapter):
         )
 
     def execute_tool(self, tool_def: ToolDefinition, **kwargs) -> ToolExecutionResult:
-        """Execute tool via direct Python function call."""
+        """Execute tool via direct Python function call with error handling."""
         import time
 
         logger.info(f"Executing tool {tool_def.name} via Python direct call")
         start_time = time.time()
 
+        # Create error context for this execution
+        error_context = create_error_context(
+            deployment_mode=DeploymentMode.LOCAL,
+            tool_name=tool_def.name,
+            metadata=kwargs,
+        )
+
+        # Create error handler for Python direct protocol
+        error_handler = ErrorHandlerFactory.create_handler(DeploymentMode.LOCAL)
+
         try:
-            # Direct function call - this is the standard LOCAL mode execution
-            result = tool_def.function(**kwargs)
-            execution_time = time.time() - start_time
+            with tracer.start_as_current_span(
+                "tool.execute",
+                kind=trace.SpanKind.INTERNAL,
+                attributes={
+                    "tool.name": tool_def.name,
+                    "tool.protocol": ToolProtocol.PYTHON_DIRECT.value,
+                },
+            ) as span:
+                span.set_attribute("tool.name", tool_def.name)
+                span.set_attribute("tool.protocol", ToolProtocol.PYTHON_DIRECT.value)
+                span.set_attribute("deployment_mode", DeploymentMode.LOCAL.value)
 
-            logger.debug(
-                f"Tool {tool_def.name} executed successfully in {execution_time:.3f}s"
-            )
+                # Add parameter information to span
+                if kwargs:
+                    span.set_attribute("tool.parameters_count", len(kwargs))
+                    # Add non-sensitive parameter names
+                    param_names = list(kwargs.keys())
+                    span.set_attribute("tool.parameter_names", ", ".join(param_names))
 
-            return ToolExecutionResult(
-                success=True,
-                result=result,
-                tool_name=tool_def.name,
-                protocol=ToolProtocol.PYTHON_DIRECT,
-                execution_time=execution_time,
-                metadata={"kwargs": kwargs},
-            )
+                # Direct function call - this is the standard LOCAL mode execution
+                result = tool_def.function(**kwargs)
+                execution_time = time.time() - start_time
+
+                # Add success attributes to span
+                span.set_attribute("tool.success", True)
+                span.set_attribute("tool.execution_time", execution_time)
+
+                logger.debug(
+                    f"Tool {tool_def.name} executed successfully in {execution_time:.3f}s"
+                )
+
+                return ToolExecutionResult(
+                    success=True,
+                    result=result,
+                    tool_name=tool_def.name,
+                    protocol=ToolProtocol.PYTHON_DIRECT,
+                    execution_time=execution_time,
+                    metadata={"kwargs": kwargs},
+                )
 
         except Exception as e:
             execution_time = time.time() - start_time
-            error_msg = f"Tool {tool_def.name} execution failed: {str(e)}"
-            logger.error(error_msg)
+
+            # Handle error with protocol-specific error handler
+            error_response = error_handler.handle_error(
+                exception=e,
+                context=error_context,
+                tool_name=tool_def.name,
+                metadata=kwargs,
+            )
+
+            logger.error(f"Tool {tool_def.name} execution failed: {str(e)}")
 
             return ToolExecutionResult(
                 success=False,
@@ -206,8 +254,12 @@ class PythonDirectAdapter(ToolProtocolAdapter):
                 tool_name=tool_def.name,
                 protocol=ToolProtocol.PYTHON_DIRECT,
                 execution_time=execution_time,
-                error_message=error_msg,
-                metadata={"kwargs": kwargs, "exception": str(e)},
+                error_message=error_response.get("error", str(e)),
+                metadata={
+                    "kwargs": kwargs,
+                    "exception": str(e),
+                    "error_response": error_response,
+                },
             )
 
     def get_protocol_info(self) -> dict[str, Any]:
@@ -258,35 +310,76 @@ class MCPAdapter(ToolProtocolAdapter):
         )
 
     def execute_tool(self, tool_def: ToolDefinition, **kwargs) -> ToolExecutionResult:
-        """Execute tool via MCP protocol."""
+        """Execute tool via MCP protocol with error handling."""
         import time
 
         logger.info(f"Executing tool {tool_def.name} via MCP protocol")
         start_time = time.time()
 
+        # Create error context for this execution
+        error_context = create_error_context(
+            deployment_mode=DeploymentMode.MCP,
+            tool_name=tool_def.name,
+            metadata=kwargs,
+        )
+
+        # Create error handler for MCP protocol
+        error_handler = ErrorHandlerFactory.create_handler(DeploymentMode.MCP)
+
         try:
-            # For MCP tools, execution is handled by the MCP client
-            # This is a wrapper that delegates to the actual MCP tool execution
-            result = tool_def.function(**kwargs)
-            execution_time = time.time() - start_time
+            with tracer.start_as_current_span(
+                "tool.execute",
+                kind=trace.SpanKind.INTERNAL,
+                attributes={
+                    "tool.name": tool_def.name,
+                    "tool.protocol": ToolProtocol.MCP.value,
+                },
+            ) as span:
+                span.set_attribute("tool.name", tool_def.name)
+                span.set_attribute("tool.protocol", ToolProtocol.MCP.value)
+                span.set_attribute("deployment_mode", DeploymentMode.MCP.value)
+                span.set_attribute("mcp.protocol_overhead", "50-100ms")
 
-            logger.debug(
-                f"MCP tool {tool_def.name} executed successfully in {execution_time:.3f}s"
-            )
+                # Add parameter information to span
+                if kwargs:
+                    span.set_attribute("tool.parameters_count", len(kwargs))
+                    param_names = list(kwargs.keys())
+                    span.set_attribute("tool.parameter_names", ", ".join(param_names))
 
-            return ToolExecutionResult(
-                success=True,
-                result=result,
-                tool_name=tool_def.name,
-                protocol=ToolProtocol.MCP,
-                execution_time=execution_time,
-                metadata={"kwargs": kwargs, "protocol_overhead": "50-100ms"},
-            )
+                # For MCP tools, execution is handled by the MCP client
+                # This is a wrapper that delegates to the actual MCP tool execution
+                result = tool_def.function(**kwargs)
+                execution_time = time.time() - start_time
+
+                # Add success attributes to span
+                span.set_attribute("tool.success", True)
+                span.set_attribute("tool.execution_time", execution_time)
+
+                logger.debug(
+                    f"MCP tool {tool_def.name} executed successfully in {execution_time:.3f}s"
+                )
+
+                return ToolExecutionResult(
+                    success=True,
+                    result=result,
+                    tool_name=tool_def.name,
+                    protocol=ToolProtocol.MCP,
+                    execution_time=execution_time,
+                    metadata={"kwargs": kwargs, "protocol_overhead": "50-100ms"},
+                )
 
         except Exception as e:
             execution_time = time.time() - start_time
-            error_msg = f"MCP tool {tool_def.name} execution failed: {str(e)}"
-            logger.error(error_msg)
+
+            # Handle error with protocol-specific error handler
+            error_response = error_handler.handle_error(
+                exception=e,
+                context=error_context,
+                tool_name=tool_def.name,
+                metadata=kwargs,
+            )
+
+            logger.error(f"MCP tool {tool_def.name} execution failed: {str(e)}")
 
             return ToolExecutionResult(
                 success=False,
@@ -294,8 +387,13 @@ class MCPAdapter(ToolProtocolAdapter):
                 tool_name=tool_def.name,
                 protocol=ToolProtocol.MCP,
                 execution_time=execution_time,
-                error_message=error_msg,
-                metadata={"kwargs": kwargs, "exception": str(e)},
+                error_message=error_response.get("error", {}).get("message", str(e)),
+                metadata={
+                    "kwargs": kwargs,
+                    "exception": str(e),
+                    "error_response": error_response,
+                    "protocol_overhead": "50-100ms",
+                },
             )
 
     def get_protocol_info(self) -> dict[str, Any]:
@@ -395,7 +493,7 @@ class HTTPRestAdapter(ToolProtocolAdapter):
         )
 
     def execute_tool(self, tool_def: ToolDefinition, **kwargs) -> ToolExecutionResult:
-        """Execute tool via HTTP/REST (AgentCore Lambda invocation).
+        """Execute tool via HTTP/REST (AgentCore Lambda invocation) with error handling.
 
         Following AWS Bedrock AgentCore execution patterns:
         https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/action-groups.html
@@ -405,79 +503,129 @@ class HTTPRestAdapter(ToolProtocolAdapter):
         logger.info(f"Executing tool {tool_def.name} via HTTP/REST (AgentCore)")
         start_time = time.time()
 
+        # Create error context for this execution
+        error_context = create_error_context(
+            deployment_mode=DeploymentMode.AGENTCORE,
+            tool_name=tool_def.name,
+            metadata=kwargs,
+        )
+
+        # Create error handler for HTTP/REST protocol
+        error_handler = ErrorHandlerFactory.create_handler(DeploymentMode.AGENTCORE)
+
         try:
-            # In AgentCore mode, tools are executed via Action Groups
-            # The AgentCoreModel handles the HTTP/REST communication automatically
-            # through the Bedrock AgentCore runtime
-
-            # For development/testing, we delegate to the function directly
-            # In production, this would be handled by the AgentCore runtime
-            # which invokes Lambda functions via HTTP/REST
-
-            # Validate input parameters match OpenAPI schema
-            if (
-                tool_def.parameters_schema
-                and "properties" in tool_def.parameters_schema
-            ):
-                provided_params = set(kwargs.keys())
-
-                # Check for missing required parameters
-                required_params = set(tool_def.parameters_schema.get("required", []))
-                missing_params = required_params - provided_params
-                if missing_params:
-                    raise ValueError(f"Missing required parameters: {missing_params}")
-
-                # Log parameter validation for AgentCore debugging
-                logger.debug(
-                    f"AgentCore tool {tool_def.name} parameter validation passed"
-                )
-
-            result = tool_def.function(**kwargs)
-            execution_time = time.time() - start_time
-
-            # Validate output against return schema if provided
-            if tool_def.return_schema and result is not None:
-                # Basic validation - in production, use jsonschema library
-                logger.debug(
-                    f"AgentCore tool {tool_def.name} return value validation passed"
-                )
-
-            logger.debug(
-                f"AgentCore tool {tool_def.name} executed successfully in {execution_time:.3f}s"
-            )
-
-            return ToolExecutionResult(
-                success=True,
-                result=result,
-                tool_name=tool_def.name,
-                protocol=ToolProtocol.HTTP_REST,
-                execution_time=execution_time,
-                metadata={
-                    "kwargs": kwargs,
-                    "protocol_overhead": "200-500ms (cold start), 50-100ms (warm)",
-                    "execution_context": "AgentCore Action Group",
-                    "lambda_runtime": "python3.11",  # AgentCore recommended runtime
-                    "openapi_validated": True,
+            with tracer.start_as_current_span(
+                "tool.execute",
+                kind=trace.SpanKind.INTERNAL,
+                attributes={
+                    "tool.name": tool_def.name,
+                    "tool.protocol": ToolProtocol.HTTP_REST.value,
                 },
-            )
+            ) as span:
+                span.set_attribute("tool.name", tool_def.name)
+                span.set_attribute("tool.protocol", ToolProtocol.HTTP_REST.value)
+                span.set_attribute("deployment_mode", DeploymentMode.AGENTCORE.value)
+                span.set_attribute("agentcore.execution_context", "Action Group")
+                span.set_attribute("agentcore.lambda_runtime", "python3.11")
+
+                # Add parameter information to span
+                if kwargs:
+                    span.set_attribute("tool.parameters_count", len(kwargs))
+                    param_names = list(kwargs.keys())
+                    span.set_attribute("tool.parameter_names", ", ".join(param_names))
+
+                # In AgentCore mode, tools are executed via Action Groups
+                # The AgentCoreModel handles the HTTP/REST communication automatically
+                # through the Bedrock AgentCore runtime
+
+                # For development/testing, we delegate to the function directly
+                # In production, this would be handled by the AgentCore runtime
+                # which invokes Lambda functions via HTTP/REST
+
+                # Validate input parameters match OpenAPI schema
+                if (
+                    tool_def.parameters_schema
+                    and "properties" in tool_def.parameters_schema
+                ):
+                    provided_params = set(kwargs.keys())
+
+                    # Check for missing required parameters
+                    required_params = set(
+                        tool_def.parameters_schema.get("required", [])
+                    )
+                    missing_params = required_params - provided_params
+                    if missing_params:
+                        raise ValueError(
+                            f"Missing required parameters: {missing_params}"
+                        )
+
+                    # Log parameter validation for AgentCore debugging
+                    logger.debug(
+                        f"AgentCore tool {tool_def.name} parameter validation passed"
+                    )
+                    span.set_attribute("agentcore.parameter_validation", "passed")
+
+                result = tool_def.function(**kwargs)
+                execution_time = time.time() - start_time
+
+                # Validate output against return schema if provided
+                if tool_def.return_schema and result is not None:
+                    # Basic validation - in production, use jsonschema library
+                    logger.debug(
+                        f"AgentCore tool {tool_def.name} return value validation passed"
+                    )
+                    span.set_attribute("agentcore.return_validation", "passed")
+
+                # Add success attributes to span
+                span.set_attribute("tool.success", True)
+                span.set_attribute("tool.execution_time", execution_time)
+                span.set_attribute("agentcore.openapi_validated", True)
+
+                logger.debug(
+                    f"AgentCore tool {tool_def.name} executed successfully in {execution_time:.3f}s"
+                )
+
+                return ToolExecutionResult(
+                    success=True,
+                    result=result,
+                    tool_name=tool_def.name,
+                    protocol=ToolProtocol.HTTP_REST,
+                    execution_time=execution_time,
+                    metadata={
+                        "kwargs": kwargs,
+                        "protocol_overhead": "200-500ms (cold start), 50-100ms (warm)",
+                        "execution_context": "AgentCore Action Group",
+                        "lambda_runtime": "python3.11",  # AgentCore recommended runtime
+                        "openapi_validated": True,
+                    },
+                )
 
         except Exception as e:
             execution_time = time.time() - start_time
-            error_msg = f"AgentCore tool {tool_def.name} execution failed: {str(e)}"
-            logger.error(error_msg)
+
+            # Handle error with protocol-specific error handler
+            error_response = error_handler.handle_error(
+                exception=e,
+                context=error_context,
+                tool_name=tool_def.name,
+                metadata=kwargs,
+            )
+
+            logger.error(f"AgentCore tool {tool_def.name} execution failed: {str(e)}")
 
             # Enhanced error context for AgentCore debugging
-            error_context = {
+            error_metadata = {
                 "kwargs": kwargs,
                 "exception": str(e),
                 "exception_type": type(e).__name__,
                 "execution_context": "AgentCore Action Group",
                 "lambda_runtime": "python3.11",
+                "error_response": error_response,
             }
 
             # Add parameter validation context if available
             if tool_def.parameters_schema:
-                error_context["schema_validation"] = (
+                error_metadata["schema_validation"] = (
                     "failed" if "Missing required parameters" in str(e) else "passed"
                 )
 
@@ -487,8 +635,8 @@ class HTTPRestAdapter(ToolProtocolAdapter):
                 tool_name=tool_def.name,
                 protocol=ToolProtocol.HTTP_REST,
                 execution_time=execution_time,
-                error_message=error_msg,
-                metadata=error_context,
+                error_message=error_response.get("response", {}).get("body", str(e)),
+                metadata=error_metadata,
             )
 
     def get_protocol_info(self) -> dict[str, Any]:

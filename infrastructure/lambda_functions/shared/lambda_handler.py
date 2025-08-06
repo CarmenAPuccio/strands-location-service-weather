@@ -273,7 +273,8 @@ def lambda_error_handler(func):
     """
     Decorator for Lambda functions to handle errors and ensure proper AgentCore response format.
 
-    This decorator implements AWS Lambda and AgentCore best practices.
+    This decorator implements AWS Lambda and AgentCore best practices with comprehensive
+    error handling and OpenTelemetry observability.
     """
 
     def wrapper(event, context):
@@ -282,6 +283,32 @@ def lambda_error_handler(func):
 
         function_name = getattr(func, "__name__", "unknown_function")
         start_time = time.time()
+
+        # Import error handling components
+        try:
+            from src.strands_location_service_weather.config import DeploymentMode
+            from src.strands_location_service_weather.error_handling import (
+                ErrorHandlerFactory,
+                create_error_context,
+            )
+
+            # Create error context for Lambda execution
+            error_context = create_error_context(
+                deployment_mode=DeploymentMode.AGENTCORE,
+                tool_name=function_name,
+                lambda_context=context,
+                agentcore_event=event,
+            )
+
+            # Create error handler for AgentCore protocol
+            error_handler = ErrorHandlerFactory.create_handler(DeploymentMode.AGENTCORE)
+
+        except ImportError as import_error:
+            logger.warning(
+                f"Could not import error handling components: {import_error}"
+            )
+            error_context = None
+            error_handler = None
 
         # Create a span for the entire Lambda execution
         with _tracer.start_as_current_span(f"lambda_{function_name}") as span:
@@ -331,62 +358,52 @@ def lambda_error_handler(func):
 
                 return result
 
-            except ValueError as e:
-                # Handle parameter validation errors
-                execution_time = time.time() - start_time
-                error_msg = f"Parameter validation error in {function_name}: {str(e)}"
-
-                logger.error(error_msg)
-                span.set_attribute("lambda.success", False)
-                span.set_attribute("lambda.error_type", "ValueError")
-                span.set_attribute("lambda.execution_time_ms", execution_time * 1000)
-                span.record_exception(e)
-
-                return format_agentcore_response(
-                    {
-                        "error": error_msg,
-                        "error_type": "parameter_validation",
-                        "error_code": "INVALID_PARAMETERS",
-                    },
-                    success=False,
-                )
-
-            except requests.RequestException as e:
-                # Handle HTTP request errors
-                execution_time = time.time() - start_time
-                error_msg = f"HTTP request error in {function_name}: {str(e)}"
-
-                logger.error(error_msg)
-                span.set_attribute("lambda.success", False)
-                span.set_attribute("lambda.error_type", "RequestException")
-                span.set_attribute("lambda.execution_time_ms", execution_time * 1000)
-                span.record_exception(e)
-
-                return format_agentcore_response(
-                    {
-                        "error": error_msg,
-                        "error_type": "http_request",
-                        "error_code": "EXTERNAL_API_ERROR",
-                    },
-                    success=False,
-                )
-
             except Exception as e:
-                # Handle unexpected errors
+                # Calculate execution time
                 execution_time = time.time() - start_time
-                error_msg = f"Unexpected error in {function_name}: {str(e)}"
 
-                logger.error(error_msg, exc_info=True)
+                # Use comprehensive error handler if available
+                if error_handler and error_context:
+                    try:
+                        error_response = error_handler.handle_error(
+                            exception=e,
+                            context=error_context,
+                            tool_name=function_name,
+                            lambda_context=context,
+                            agentcore_event=event,
+                        )
+
+                        logger.info("Error handled by comprehensive error handler")
+                        return error_response
+
+                    except Exception as handler_error:
+                        logger.error(f"Error handler failed: {handler_error}")
+                        # Fall back to basic error handling
+
+                # Fall back to basic error handling
+                logger.error(f"Error in {function_name}: {str(e)}", exc_info=True)
                 span.set_attribute("lambda.success", False)
-                span.set_attribute("lambda.error_type", "Exception")
+                span.set_attribute("lambda.error_type", type(e).__name__)
                 span.set_attribute("lambda.execution_time_ms", execution_time * 1000)
                 span.record_exception(e)
 
+                # Classify error type for basic handling
+                if isinstance(e, ValueError):
+                    error_type = "parameter_validation"
+                    error_code = "INVALID_PARAMETERS"
+                elif isinstance(e, requests.RequestException):
+                    error_type = "http_request"
+                    error_code = "EXTERNAL_API_ERROR"
+                else:
+                    error_type = "internal_error"
+                    error_code = "INTERNAL_ERROR"
+
                 return format_agentcore_response(
                     {
-                        "error": error_msg,
-                        "error_type": "internal_error",
-                        "error_code": "INTERNAL_ERROR",
+                        "error": f"Error in {function_name}: {str(e)}",
+                        "error_type": error_type,
+                        "error_code": error_code,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     },
                     success=False,
                 )

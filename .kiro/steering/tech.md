@@ -57,6 +57,22 @@ uv run pytest tests/test_lambda_handler.py
 
 # Deploy infrastructure (when CDK is implemented)
 # uv run cdk deploy LocationWeatherStack
+
+# OpenAPI Schema Generation and Validation
+# Generate all schemas and export to files
+uv run python -m src.strands_location_service_weather.schema_cli generate --output-dir infrastructure/schemas
+
+# Validate all generated schemas
+uv run python -m src.strands_location_service_weather.schema_cli validate --verbose
+
+# Generate validation report
+uv run python -m src.strands_location_service_weather.schema_cli report --output validation_report.md
+
+# Show specific schema
+uv run python -m src.strands_location_service_weather.schema_cli show weather_services
+
+# List all available schemas
+uv run python -m src.strands_location_service_weather.schema_cli list
 ```
 
 ### Development Workflow

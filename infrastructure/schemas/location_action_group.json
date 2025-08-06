@@ -1,0 +1,180 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Location Services API",
+    "version": "1.0.0",
+    "description": "Location search and routing services via Amazon Location Service"
+  },
+  "paths": {
+    "/search_places": {
+      "post": {
+        "description": "Search for places by text query",
+        "operationId": "search_places",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "description": "Search query text"
+                  },
+                  "bias_position": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "description": "Bias position as [longitude, latitude]",
+                    "nullable": true
+                  },
+                  "filter_bbox": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "description": "Bounding box filter as [west, south, east, north]",
+                    "nullable": true
+                  },
+                  "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of results",
+                    "default": 10
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "place_id": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "geometry": {
+                            "type": "object",
+                            "properties": {
+                              "point": {
+                                "type": "array",
+                                "items": {
+                                  "type": "number"
+                                }
+                              }
+                            }
+                          },
+                          "address": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/calculate_route": {
+      "post": {
+        "description": "Calculate route between two points",
+        "operationId": "calculate_route",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "departure_position": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "description": "Starting position as [longitude, latitude]"
+                  },
+                  "destination_position": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "description": "Destination position as [longitude, latitude]"
+                  },
+                  "travel_mode": {
+                    "type": "string",
+                    "enum": [
+                      "Car",
+                      "Truck",
+                      "Walking"
+                    ],
+                    "default": "Car"
+                  }
+                },
+                "required": [
+                  "departure_position",
+                  "destination_position"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Route calculation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "distance": {
+                          "type": "number"
+                        },
+                        "duration_seconds": {
+                          "type": "number"
+                        },
+                        "route_bbox": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "legs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

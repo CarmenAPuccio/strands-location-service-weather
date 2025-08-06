@@ -16,6 +16,7 @@ This project combines Amazon Location Service MCP Server with weather data to pr
 - **High Performance**: Optimized HTTP session reuse and streamlined processing (~18s response time)
 - **Observability**: Full OpenTelemetry integration with tracing, logging, and metrics
 - **Error Handling**: Robust error handling with graceful degradation
+- **OpenAPI Schema Generation**: Automatic generation of OpenAPI 3.0 schemas for AgentCore action groups
 
 ## Architecture
 
@@ -347,6 +348,77 @@ health = client.health_check()
 print(f"Healthy: {health.healthy}, Model OK: {health.model_healthy}")
 ```
 
+## OpenAPI Schema Generation
+
+The application includes comprehensive OpenAPI 3.0 schema generation for AWS Bedrock AgentCore action groups. This enables automatic creation of action group definitions from Python tool functions.
+
+### Features
+
+- **Automatic Schema Generation**: Converts Python functions to OpenAPI 3.0 schemas
+- **Type Inference**: Supports all Python types including Optional, List, Dict, Union
+- **AgentCore Compliance**: Validates schemas for AWS Bedrock AgentCore compatibility
+- **CLI Tools**: Complete command-line interface for generation and validation
+- **Comprehensive Validation**: 25+ validation rules with detailed error reporting
+
+### Generated Schemas
+
+The system generates schemas for two action groups:
+
+- **Weather Services**: `get_weather`, `get_alerts`, `current_time` operations
+- **Location Services**: `search_places`, `calculate_route` operations
+
+### CLI Usage
+
+```bash
+# Generate all schemas and export to files
+uv run python -m src.strands_location_service_weather.schema_cli generate --output-dir infrastructure/schemas
+
+# Validate all generated schemas
+uv run python -m src.strands_location_service_weather.schema_cli validate --verbose
+
+# Show a specific schema
+uv run python -m src.strands_location_service_weather.schema_cli show weather_services
+
+# Generate validation report
+uv run python -m src.strands_location_service_weather.schema_cli report --output validation_report.md
+
+# List all available schemas
+uv run python -m src.strands_location_service_weather.schema_cli list
+
+# Validate a specific schema file
+uv run python -m src.strands_location_service_weather.schema_cli validate-file ./schemas/weather_action_group.json
+```
+
+### Programmatic Usage
+
+```python
+from src.strands_location_service_weather.openapi_schemas import (
+    create_weather_action_group_schema,
+    create_location_action_group_schema,
+    get_all_action_group_schemas
+)
+from src.strands_location_service_weather.schema_validation import validate_all_schemas
+
+# Generate schemas
+weather_schema = create_weather_action_group_schema()
+location_schema = create_location_action_group_schema()
+all_schemas = get_all_action_group_schemas()
+
+# Validate schemas
+validation_results = validate_all_schemas()
+for name, result in validation_results.items():
+    print(f"{name}: {'VALID' if result.valid else 'INVALID'}")
+```
+
+### Schema Files
+
+Generated schemas are saved to `infrastructure/schemas/`:
+- `weather_action_group.json` - Weather services OpenAPI schema
+- `location_action_group.json` - Location services OpenAPI schema
+- `validation_report.md` - Comprehensive validation report
+
+These schemas can be used directly with AWS CDK or CloudFormation to create AgentCore action groups.
+
 ## Usage
 
 ### Interactive CLI
@@ -376,7 +448,17 @@ To use with Amazon Q CLI or other MCP clients:
 uv run location-weather-mcp
 ```
 
-See [MCP_SETUP.md](MCP_SETUP.md) for detailed Q CLI configuration instructions.
+See [MCP Setup Guide](docs/mcp-setup.md) for detailed Q CLI configuration instructions.
+
+## Documentation
+
+Additional documentation is available in the `docs/` directory:
+
+- **[MCP Setup Guide](docs/mcp-setup.md)** - Detailed Q CLI configuration and usage instructions
+- **[Error Handling Implementation](docs/error-handling-implementation.md)** - Comprehensive error handling and fallback mechanisms
+- **[OpenTelemetry & MCP Alignment](docs/opentelemetry-mcp-alignment.md)** - Best practices compliance and standards alignment
+- **[Tool Integration Best Practices](docs/tool-integration-best-practices.md)** - Guidelines for tool development and integration
+- **[Guardrails Best Practices](docs/guardrails-best-practices.md)** - Security and content filtering guidelines
 
 **Note**: This project includes automated CI/CD via GitHub Actions. All tests, formatting, and linting checks run automatically on pull requests.
 
