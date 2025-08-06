@@ -11,12 +11,13 @@
 
 ## Key Dependencies
 
-- `strands-agents`: Core agent framework for Bedrock integration
+- `strands-agents`: Core agent framework for Bedrock and AgentCore integration
 - `strands-agents-tools`: Additional tooling including MCP client
 - `requests`: HTTP client for weather API calls (with session reuse optimization)
-- `boto3`: AWS SDK for Bedrock services
+- `boto3`: AWS SDK for Bedrock services and Lambda deployment
 - `fastmcp`: FastMCP framework for MCP server implementation
-- `opentelemetry-*`: Full observability stack
+- `opentelemetry-*`: Full observability stack with distributed tracing
+- `aws-cdk-lib`: AWS CDK for infrastructure as code (Lambda functions and AgentCore setup)
 
 ## Build System
 
@@ -50,6 +51,12 @@ uv run pytest --cov=src
 
 # Run only fast tests (skip slow benchmarks)
 uv run pytest -m "not slow"
+
+# Test Lambda functions specifically
+uv run pytest tests/test_lambda_handler.py
+
+# Deploy infrastructure (when CDK is implemented)
+# uv run cdk deploy LocationWeatherStack
 ```
 
 ### Development Workflow

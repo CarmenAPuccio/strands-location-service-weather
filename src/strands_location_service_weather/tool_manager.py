@@ -10,10 +10,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
-from strands_tools.current_time import current_time
-
+# We'll define current_time locally to ensure proper @tool decoration
 from .config import DeploymentMode
 
 # Get logger for this module
@@ -420,7 +419,6 @@ class HTTPRestAdapter(ToolProtocolAdapter):
                 tool_def.parameters_schema
                 and "properties" in tool_def.parameters_schema
             ):
-                expected_params = set(tool_def.parameters_schema["properties"].keys())
                 provided_params = set(kwargs.keys())
 
                 # Check for missing required parameters
@@ -614,7 +612,7 @@ class ToolManager:
         logger.info(f"Getting tools for deployment mode: {mode.value}")
 
         # Import tools here to avoid circular imports
-        from .location_weather import get_alerts, get_weather
+        from .location_weather import current_time, get_alerts, get_weather
 
         # Base tools available in all modes (custom weather tools)
         base_tools = [current_time, get_weather, get_alerts]
@@ -673,14 +671,22 @@ class ToolManager:
         """
         logger.info(f"Validating tools for deployment mode: {mode.value}")
 
-        # Get the protocol for this mode
-        protocol = self._get_protocol_for_mode(mode)
         results = []
 
         # Get tools for this mode and validate each one
         tools = self.get_tools_for_mode(mode)
         for tool_func in tools:
             tool_name = getattr(tool_func, "__name__", str(tool_func))
+
+            # Determine the appropriate protocol for this specific tool
+            if hasattr(tool_func, "__class__") and "MCPAgentTool" in str(
+                tool_func.__class__
+            ):
+                # This is an MCP tool
+                protocol = ToolProtocol.MCP
+            else:
+                # This is a regular Python function
+                protocol = ToolProtocol.PYTHON_DIRECT
 
             # Create a temporary tool definition for validation
             temp_tool_def = ToolDefinition(
@@ -830,7 +836,7 @@ class ToolManager:
             }
 
 
-def generate_openapi_schema_for_tool(tool_func: Callable) -> Dict[str, Any]:
+def generate_openapi_schema_for_tool(tool_func: Callable) -> dict[str, Any]:
     """Generate OpenAPI 3.0 schema for a tool function.
 
     This follows AWS Bedrock AgentCore requirements for Action Group schemas.
@@ -856,13 +862,13 @@ def generate_openapi_schema_for_tool(tool_func: Callable) -> Dict[str, Any]:
 
             # Map Python types to OpenAPI types
             if param.annotation != inspect.Parameter.empty:
-                if param.annotation == int:
+                if param.annotation is int:
                     param_schema = {"type": "integer"}
-                elif param.annotation == float:
+                elif param.annotation is float:
                     param_schema = {"type": "number"}
-                elif param.annotation == bool:
+                elif param.annotation is bool:
                     param_schema = {"type": "boolean"}
-                elif param.annotation == str:
+                elif param.annotation is str:
                     param_schema = {"type": "string"}
                 elif hasattr(param.annotation, "__origin__"):
                     # Handle Union, Optional, List, etc.
@@ -891,17 +897,17 @@ def generate_openapi_schema_for_tool(tool_func: Callable) -> Dict[str, Any]:
         # Generate return schema
         return_schema = {"type": "object"}  # Default
         if sig.return_annotation != inspect.Signature.empty:
-            if sig.return_annotation == dict:
+            if sig.return_annotation is dict:
                 return_schema = {"type": "object"}
-            elif sig.return_annotation == list:
+            elif sig.return_annotation is list:
                 return_schema = {"type": "array"}
-            elif sig.return_annotation == str:
+            elif sig.return_annotation is str:
                 return_schema = {"type": "string"}
-            elif sig.return_annotation == int:
+            elif sig.return_annotation is int:
                 return_schema = {"type": "integer"}
-            elif sig.return_annotation == float:
+            elif sig.return_annotation is float:
                 return_schema = {"type": "number"}
-            elif sig.return_annotation == bool:
+            elif sig.return_annotation is bool:
                 return_schema = {"type": "boolean"}
 
         return {

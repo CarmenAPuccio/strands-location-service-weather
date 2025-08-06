@@ -314,6 +314,8 @@ uv run location-weather
 - Action groups configured for Amazon Location Service APIs
 - Optional guardrails for content filtering
 
+For detailed Lambda function deployment instructions, see [infrastructure/lambda_deployment_guide.md](infrastructure/lambda_deployment_guide.md).
+
 ### Mode-Specific Configuration
 
 Each mode can be configured programmatically:

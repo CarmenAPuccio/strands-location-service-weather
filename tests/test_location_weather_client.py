@@ -2,6 +2,8 @@
 Test LocationWeatherClient integration and behavior.
 """
 
+from unittest.mock import Mock
+
 from src.strands_location_service_weather.location_weather import LocationWeatherClient
 
 
@@ -26,26 +28,36 @@ class TestLocationWeatherClient:
         custom_model = "anthropic.claude-3-haiku-20240307-v1:0"
         LocationWeatherClient(model_id=custom_model)
 
-        # Verify custom model ID was used
+        # Verify custom model ID was used (now includes timeout parameter)
         mock_bedrock_model.assert_called_with(
-            model_id=custom_model, region_name="us-east-1"  # default region
+            model_id=custom_model, region_name="us-east-1", timeout=30
         )
 
-    def test_chat_method_calls_agent(self, weather_client, mock_agent):
+    def test_chat_method_calls_agent(self, weather_client):
         """Test that chat method properly calls the agent."""
-        mock_agent.return_value = "Weather response"
+        # Mock the agent instance directly on the client after it's created
+        mock_agent_instance = Mock()
+        mock_agent_instance.return_value = "Weather response"
+        weather_client.agent = mock_agent_instance
 
+        # Call chat method
         result = weather_client.chat("What's the weather in Seattle?")
 
-        mock_agent.assert_called_once_with("What's the weather in Seattle?")
+        # Verify the agent instance was called with the prompt
+        mock_agent_instance.assert_called_once_with("What's the weather in Seattle?")
         assert result == "Weather response"
 
-    def test_chat_method_handles_exceptions(self, weather_client, mock_agent):
+    def test_chat_method_handles_exceptions(self, weather_client):
         """Test that chat method handles agent exceptions gracefully."""
-        mock_agent.side_effect = Exception("Bedrock error")
+        # Mock the agent instance to raise an exception
+        mock_agent_instance = Mock()
+        mock_agent_instance.side_effect = Exception("Bedrock error")
+        weather_client.agent = mock_agent_instance
 
+        # Call chat method
         result = weather_client.chat("What's the weather?")
 
+        # Verify error handling
         assert "error processing your request" in result.lower()
         assert "Bedrock error" in result
 

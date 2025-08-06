@@ -14,7 +14,7 @@ from src.strands_location_service_weather.location_weather import LocationWeathe
 def mock_bedrock_model():
     """Mock BedrockModel for testing without AWS calls."""
     with patch(
-        "src.strands_location_service_weather.location_weather.BedrockModel"
+        "src.strands_location_service_weather.model_factory.BedrockModel"
     ) as mock:
         yield mock
 
@@ -32,7 +32,7 @@ def mock_mcp_client():
 @pytest.fixture
 def mock_agent():
     """Mock Strands Agent for testing without Bedrock."""
-    with patch("src.strands_location_service_weather.location_weather.Agent") as mock:
+    with patch("strands.Agent") as mock:
         agent_instance = Mock()
         mock.return_value = agent_instance
         yield agent_instance

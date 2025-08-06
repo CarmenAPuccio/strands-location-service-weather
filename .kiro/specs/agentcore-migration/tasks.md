@@ -46,7 +46,7 @@
   - Write unit tests for tool execution in different modes
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 6. Create Lambda function templates for AgentCore tools
+- [x] 6. Create Lambda function templates for AgentCore tools
 
   - Implement AgentCore-compliant Lambda handler template
   - Create Lambda functions for `get_weather` and `get_alerts` tools

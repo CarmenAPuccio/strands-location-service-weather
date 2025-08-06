@@ -60,6 +60,18 @@ logger.info(f"Loaded {len(mcp_tools)} tools from MCP server")
 
 
 @tool
+def current_time() -> str:
+    """Get the current date and time.
+
+    Returns:
+        Current date and time as a formatted string
+    """
+    from datetime import datetime
+
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+@tool
 def get_weather(latitude: float, longitude: float) -> dict[str, Any]:
     """Get weather information for a location
 
