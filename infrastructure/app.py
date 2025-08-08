@@ -7,6 +7,10 @@ for Python project structure.
 """
 
 import os
+import sys
+
+# Add current directory to Python path for CDK module imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from aws_cdk import App, Environment
 from stacks.agentcore_stack import LocationWeatherAgentCoreStack

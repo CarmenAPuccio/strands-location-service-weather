@@ -23,10 +23,6 @@ from lambda_handler import (
     lambda_error_handler,
     parse_agentcore_event,
 )
-from weather_tools import (
-    get_alerts_handler,
-    get_weather_handler,
-)
 
 
 class TestAgentCoreEventParsing:
@@ -138,7 +134,7 @@ class TestLambdaErrorHandler:
 
         @lambda_error_handler
         def test_function(event, context):
-            return format_agentcore_response({"success": True})
+            return {"success": True}
 
         # Mock context
         context = Mock()
@@ -191,19 +187,16 @@ class TestLambdaErrorHandler:
             # Should return formatted error response
             assert "response" in result
             body_data = json.loads(result["response"]["body"])
-            assert "Parameter validation error" in body_data["error"]
-            assert body_data["error_type"] == "parameter_validation"
+            assert "Invalid parameters" in body_data["error"]
+            assert body_data["error_type"] == "validation"
 
 
 class TestWeatherHandler:
     """Test weather Lambda handler."""
 
-    @patch("lambda_handler._tracer")
-    @patch("weather_tools._tracer")
-    @patch("weather_tools._http_session")
-    def test_successful_weather_request(
-        self, mock_session, mock_weather_tracer, mock_lambda_tracer
-    ):
+    @patch("infrastructure.lambda_functions.shared.lambda_handler._tracer")
+    @patch("requests.get")
+    def test_successful_weather_request(self, mock_requests_get, mock_lambda_tracer):
         """Test successful weather data retrieval."""
         # Mock the HTTP responses
         mock_points_response = Mock()
@@ -233,7 +226,7 @@ class TestWeatherHandler:
         }
         mock_forecast_response.content = b'{"test": "forecast"}'
 
-        mock_session.get.side_effect = [mock_points_response, mock_forecast_response]
+        mock_requests_get.side_effect = [mock_points_response, mock_forecast_response]
 
         # Create test event
         event = {
@@ -259,20 +252,26 @@ class TestWeatherHandler:
         mock_context_manager.__exit__ = Mock(return_value=None)
         mock_lambda_tracer.start_as_current_span.return_value = mock_context_manager
 
-        result = get_weather_handler(event, context)
+        # Import the actual lambda handler
+        from infrastructure.lambda_functions.get_weather.lambda_function import (
+            lambda_handler,
+        )
+
+        result = lambda_handler(event, context)
 
         # Verify response format
         assert "response" in result
-        body_data = json.loads(result["response"]["body"])
+        body_data = json.loads(
+            result["response"]["responseBody"]["application/json"]["body"]
+        )
 
         assert body_data["success"] is True
         assert body_data["temperature"]["value"] == 72
         assert body_data["temperature"]["unit"] == "F"
         assert body_data["shortForecast"] == "Sunny"
 
-    @patch("lambda_handler._tracer")
-    @patch("weather_tools._tracer")
-    def test_missing_coordinates(self, mock_weather_tracer, mock_lambda_tracer):
+    @patch("infrastructure.lambda_functions.shared.lambda_handler._tracer")
+    def test_missing_coordinates(self, mock_lambda_tracer):
         """Test weather handler with missing coordinates."""
         event = {
             "parameters": [
@@ -297,11 +296,18 @@ class TestWeatherHandler:
         mock_context_manager.__exit__ = Mock(return_value=None)
         mock_lambda_tracer.start_as_current_span.return_value = mock_context_manager
 
-        result = get_weather_handler(event, context)
+        # Import the actual lambda handler
+        from infrastructure.lambda_functions.get_weather.lambda_function import (
+            lambda_handler,
+        )
+
+        result = lambda_handler(event, context)
 
         # Should return error response
         assert "response" in result
-        body_data = json.loads(result["response"]["body"])
+        body_data = json.loads(
+            result["response"]["responseBody"]["application/json"]["body"]
+        )
         assert (
             "Both latitude and longitude parameters are required" in body_data["error"]
         )
@@ -310,11 +316,10 @@ class TestWeatherHandler:
 class TestAlertsHandler:
     """Test alerts Lambda handler."""
 
-    @patch("lambda_handler._tracer")
-    @patch("weather_tools._tracer")
-    @patch("weather_tools._http_session")
+    @patch("infrastructure.lambda_functions.shared.lambda_handler._tracer")
+    @patch("requests.get")
     def test_successful_alerts_request_no_alerts(
-        self, mock_session, mock_weather_tracer, mock_lambda_tracer
+        self, mock_requests_get, mock_lambda_tracer
     ):
         """Test successful alerts retrieval with no active alerts."""
         # Mock the HTTP responses
@@ -330,7 +335,7 @@ class TestAlertsHandler:
         mock_alerts_response.json.return_value = {"features": []}  # No alerts
         mock_alerts_response.content = b'{"features": []}'
 
-        mock_session.get.side_effect = [mock_points_response, mock_alerts_response]
+        mock_requests_get.side_effect = [mock_points_response, mock_alerts_response]
 
         event = {
             "parameters": [
@@ -353,11 +358,18 @@ class TestAlertsHandler:
         mock_context_manager.__exit__ = Mock(return_value=None)
         mock_lambda_tracer.start_as_current_span.return_value = mock_context_manager
 
-        result = get_alerts_handler(event, context)
+        # Import the actual lambda handler
+        from infrastructure.lambda_functions.get_alerts.lambda_function import (
+            lambda_handler,
+        )
+
+        result = lambda_handler(event, context)
 
         # Verify response format
         assert "response" in result
-        body_data = json.loads(result["response"]["body"])
+        body_data = json.loads(
+            result["response"]["responseBody"]["application/json"]["body"]
+        )
 
         assert body_data["success"] is True
         assert body_data["alert_count"] == 0

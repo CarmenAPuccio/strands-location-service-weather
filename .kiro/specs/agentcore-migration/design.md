@@ -635,7 +635,7 @@ self.guardrail = bedrock.CfnGuardrail(
                 "action": "BLOCK"
             },
             {
-                "type": "SSN",
+                "type": "US_SOCIAL_SECURITY_NUMBER",
                 "action": "BLOCK"
             }
             # NOTE: ADDRESS is intentionally excluded as location services require address processing

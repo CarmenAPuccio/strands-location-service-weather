@@ -1,10 +1,11 @@
 """
-Lambda construct for weather tools.
+Lambda construct for weather tools using Lambda layers.
 
 This module provides a reusable CDK construct for creating Lambda functions
-for weather and alerts tools following AWS CDK best practices.
+with Lambda layers for dependencies and shared code, following AWS best practices.
 """
 
+import aws_cdk
 from aws_cdk import (
     Duration,
 )
@@ -17,7 +18,6 @@ from aws_cdk import (
 from aws_cdk import (
     aws_logs as logs,
 )
-
 from constructs import Construct
 
 
@@ -54,6 +54,10 @@ class WeatherLambdaConstruct(Construct):
         # Create IAM execution role for Lambda functions
         self.execution_role = self._create_lambda_execution_role()
 
+        # Create Lambda layers
+        self.dependencies_layer = self._create_dependencies_layer()
+        self.shared_code_layer = self._create_shared_code_layer()
+
         # Create Lambda functions
         self.weather_function = self._create_weather_lambda()
         self.alerts_function = self._create_alerts_lambda()
@@ -86,6 +90,28 @@ class WeatherLambdaConstruct(Construct):
 
         return role
 
+    def _create_dependencies_layer(self) -> lambda_.LayerVersion:
+        """Create Lambda layer for Python dependencies."""
+        layer = lambda_.LayerVersion(
+            self,
+            "DependenciesLayer",
+            code=lambda_.Code.from_asset("layers/dependencies"),
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
+            description="Python dependencies for weather Lambda functions",
+        )
+        return layer
+
+    def _create_shared_code_layer(self) -> lambda_.LayerVersion:
+        """Create Lambda layer for shared code."""
+        layer = lambda_.LayerVersion(
+            self,
+            "SharedCodeLayer",
+            code=lambda_.Code.from_asset("layers/shared-code"),
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_11],
+            description="Shared code for weather Lambda functions",
+        )
+        return layer
+
     def _create_weather_lambda(self) -> lambda_.Function:
         """Create Lambda function for weather tool."""
         function = lambda_.Function(
@@ -94,12 +120,14 @@ class WeatherLambdaConstruct(Construct):
             function_name=f"{self.function_name_prefix}-get-weather",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="lambda_function.lambda_handler",
-            code=lambda_.Code.from_asset("lambda-packages/get-weather"),
+            code=lambda_.Code.from_asset("lambda_functions/get_weather"),
+            layers=[self.dependencies_layer, self.shared_code_layer],
             role=self.execution_role,
             timeout=Duration.seconds(30),
             memory_size=256,
             environment=self._get_weather_environment_vars(),
             tracing=lambda_.Tracing.ACTIVE,
+            description="Weather tool for AgentCore - v2.0 with fixed error handling",
         )
 
         # Add permission for Bedrock to invoke the function
@@ -119,12 +147,14 @@ class WeatherLambdaConstruct(Construct):
             function_name=f"{self.function_name_prefix}-get-alerts",
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="lambda_function.lambda_handler",
-            code=lambda_.Code.from_asset("lambda-packages/get-alerts"),
+            code=lambda_.Code.from_asset("lambda_functions/get_alerts"),
+            layers=[self.dependencies_layer, self.shared_code_layer],
             role=self.execution_role,
             timeout=Duration.seconds(30),
             memory_size=256,
             environment=self._get_alerts_environment_vars(),
             tracing=lambda_.Tracing.ACTIVE,
+            description="Weather alerts tool for AgentCore - v2.0 with fixed error handling",
         )
 
         # Add permission for Bedrock to invoke the function
@@ -144,6 +174,7 @@ class WeatherLambdaConstruct(Construct):
             "USER_AGENT_WEATHER": "AgentCoreWeatherService/1.0",
             "ACCEPT_HEADER": "application/geo+json",
             "FASTMCP_LOG_LEVEL": "ERROR",
+            "LAMBDA_VERSION": "2.0",
         }
 
         if self.otlp_endpoint:
@@ -159,6 +190,7 @@ class WeatherLambdaConstruct(Construct):
             "USER_AGENT_ALERTS": "AgentCoreAlertsService/1.0",
             "ACCEPT_HEADER": "application/geo+json",
             "FASTMCP_LOG_LEVEL": "ERROR",
+            "LAMBDA_VERSION": "2.0",
         }
 
         if self.otlp_endpoint:
@@ -189,20 +221,20 @@ class WeatherLambdaConstruct(Construct):
             3653: logs.RetentionDays.TEN_YEARS,
         }
 
-        retention = retention_mapping.get(
-            self.log_retention_days, logs.RetentionDays.TWO_WEEKS
-        )
+        retention_mapping.get(self.log_retention_days, logs.RetentionDays.TWO_WEEKS)
 
         logs.LogGroup(
             self,
             "WeatherLogGroup",
             log_group_name=f"/aws/lambda/{self.weather_function.function_name}",
-            retention=retention,
+            retention=logs.RetentionDays.ONE_MONTH,
+            removal_policy=aws_cdk.RemovalPolicy.DESTROY,
         )
 
         logs.LogGroup(
             self,
             "AlertsLogGroup",
             log_group_name=f"/aws/lambda/{self.alerts_function.function_name}",
-            retention=retention,
+            retention=logs.RetentionDays.ONE_MONTH,
+            removal_policy=aws_cdk.RemovalPolicy.DESTROY,
         )

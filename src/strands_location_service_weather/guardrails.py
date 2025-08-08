@@ -576,15 +576,14 @@ def create_location_service_guardrail_policy() -> dict[str, Any]:
             "piiEntitiesConfig": [
                 # Block sensitive financial/identity PII
                 {"type": "CREDIT_DEBIT_CARD_NUMBER", "action": "BLOCK"},
-                {"type": "SSN", "action": "BLOCK"},
-                {"type": "BANK_ACCOUNT_NUMBER", "action": "BLOCK"},
-                {"type": "BANK_ROUTING", "action": "BLOCK"},
-                {"type": "PASSPORT_NUMBER", "action": "BLOCK"},
+                {"type": "US_SOCIAL_SECURITY_NUMBER", "action": "BLOCK"},
+                {"type": "US_BANK_ACCOUNT_NUMBER", "action": "BLOCK"},
+                {"type": "US_BANK_ROUTING_NUMBER", "action": "BLOCK"},
+                {"type": "US_PASSPORT_NUMBER", "action": "BLOCK"},
                 {"type": "DRIVER_ID", "action": "BLOCK"},
                 {"type": "LICENSE_PLATE", "action": "BLOCK"},
-                {"type": "VEHICLE_VIN", "action": "BLOCK"},
                 {"type": "PASSWORD", "action": "BLOCK"},
-                {"type": "PIN", "action": "BLOCK"},
+                # Removed VEHICLE_VIN and PIN as they may not be supported in all regions
                 # Block contact info (not needed for weather/location service)
                 {"type": "PHONE", "action": "BLOCK"},
                 {"type": "EMAIL", "action": "BLOCK"},

@@ -74,10 +74,10 @@ class CDKDeploymentManager:
             "opentelemetry-instrumentation-requests",
         ]
 
+        # Use uv to install dependencies
         subprocess.run(
             [
-                sys.executable,
-                "-m",
+                "uv",
                 "pip",
                 "install",
                 "--target",

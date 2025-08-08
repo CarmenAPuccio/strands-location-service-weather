@@ -26,7 +26,7 @@
 │   │   ├── weather_action_group.json    # Weather services OpenAPI schema
 │   │   ├── location_action_group.json   # Location services OpenAPI schema
 │   │   └── validation_report.md         # Schema validation report
-│   └── lambda_deployment_guide.md # Lambda deployment documentation
+
 ├── tests/                        # Test suite
 │   ├── conftest.py              # Pytest configuration and fixtures
 │   ├── test_*.py                # Unit and integration tests

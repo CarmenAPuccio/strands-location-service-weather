@@ -20,12 +20,49 @@ This project combines Amazon Location Service MCP Server with weather data to pr
 
 ## Architecture
 
-The application uses a unified architecture where:
+The application uses a unified architecture with multiple deployment modes:
+
+- **Local Mode**: Direct Python execution for development and testing
+- **MCP Server Mode**: FastMCP server compatible with Amazon Q CLI
+- **AgentCore Mode**: AWS Lambda functions with Bedrock AgentCore integration
+
+### Key Components
 
 - MCP (Model Context Protocol) tools provide Amazon Location Service integration
 - Custom weather tools fetch data from the National Weather Service API
+- Lambda layers for shared dependencies and code (AgentCore mode)
 - A single LocationWeatherClient class handles all Bedrock interactions
-- OpenTelemetry provides comprehensive observability
+- OpenTelemetry provides comprehensive observability across all modes
+
+## Deployment Modes
+
+### AgentCore Deployment
+
+For production AWS deployment with Bedrock AgentCore:
+
+```bash
+# Build Lambda layers and functions
+uv run python infrastructure/build_lambda_layers.py
+
+# Deploy AWS infrastructure
+cd infrastructure && cdk deploy
+```
+
+This creates:
+- Lambda functions with proper layers for dependencies
+- Bedrock AgentCore agent with guardrails
+- CloudWatch logging and monitoring
+- IAM roles with least-privilege access
+
+### Local Development
+
+```bash
+# Run locally
+uv run location-weather
+
+# Run as MCP server
+uv run location-weather-mcp
+```
 
 ## OpenTelemetry Observability
 
@@ -271,6 +308,8 @@ Environment variables take precedence over all config files.
 
 The application supports three deployment modes to accommodate different use cases:
 
+> **📋 For AWS CDK Infrastructure Deployment**: See [CDK Deployment Notes](docs/DEPLOYMENT_NOTES.md) for detailed instructions on deploying the AgentCore infrastructure.
+
 ### LOCAL Mode (Default)
 - **Use Case**: Local development and testing
 - **Model**: Amazon Bedrock with direct API calls
@@ -315,7 +354,7 @@ uv run location-weather
 - Action groups configured for Amazon Location Service APIs
 - Optional guardrails for content filtering
 
-For detailed Lambda function deployment instructions, see [infrastructure/lambda_deployment_guide.md](infrastructure/lambda_deployment_guide.md).
+For detailed Lambda function deployment instructions, see [infrastructure/README.md](infrastructure/README.md#deployment).
 
 ### Mode-Specific Configuration
 
@@ -461,6 +500,42 @@ Additional documentation is available in the `docs/` directory:
 - **[Guardrails Best Practices](docs/guardrails-best-practices.md)** - Security and content filtering guidelines
 
 **Note**: This project includes automated CI/CD via GitHub Actions. All tests, formatting, and linting checks run automatically on pull requests.
+
+## Deployment
+
+### AWS Lambda Deployment (AgentCore Mode)
+
+For production use with AWS Bedrock AgentCore, deploy the weather tools as Lambda functions:
+
+```bash
+# 1. Build Lambda layers (dependencies and shared code)
+uv run python infrastructure/build_lambda_layers.py
+
+# 2. Deploy infrastructure with CDK
+cd infrastructure && cdk deploy
+```
+
+This creates:
+- **Lambda Functions**: Weather and alerts tools with optimized layers
+- **Bedrock Agent**: AgentCore agent with action groups pre-configured
+- **IAM Roles**: Minimal required permissions for security
+- **Monitoring**: CloudWatch logs and distributed tracing
+
+The deployed Lambda functions automatically integrate with your AgentCore agent and can be invoked through the Bedrock AgentCore runtime.
+
+For detailed deployment instructions, see [infrastructure/README.md](infrastructure/README.md#deployment).
+
+### Local Development
+
+For development and testing, use the local CLI mode:
+
+```bash
+# Interactive CLI
+uv run location-weather
+
+# MCP server for Q CLI integration
+uv run location-weather-mcp
+```
 
 ## Development Workflow
 

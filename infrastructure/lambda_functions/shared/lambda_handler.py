@@ -20,10 +20,8 @@ from typing import Any
 
 import requests
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 # Configure structured logging for Lambda CloudWatch
 logger = logging.getLogger()
@@ -67,17 +65,13 @@ def initialize_lambda_environment():
 
     logger.info("Initializing Lambda environment")
 
-    # Initialize OpenTelemetry tracing
+    # Initialize OpenTelemetry tracing (simplified for Lambda)
     trace.set_tracer_provider(TracerProvider())
-    tracer_provider = trace.get_tracer_provider()
+    trace.get_tracer_provider()
 
-    # Configure OTLP exporter if endpoint is provided
-    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-    if otlp_endpoint:
-        otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint)
-        span_processor = BatchSpanProcessor(otlp_exporter)
-        tracer_provider.add_span_processor(span_processor)
-        logger.info(f"OpenTelemetry OTLP exporter configured: {otlp_endpoint}")
+    # Note: OTLP GRPC exporter removed due to platform compatibility issues
+    # AWS Lambda provides X-Ray tracing integration if needed
+    logger.info("OpenTelemetry initialized for Lambda (basic tracing)")
 
     # Instrument requests library for HTTP tracing
     RequestsInstrumentor().instrument()
@@ -293,11 +287,13 @@ def lambda_error_handler(func):
             )
 
             # Create error context for Lambda execution
+            # Ensure event is a dictionary for error handling
+            safe_event = event if isinstance(event, dict) else {}
             error_context = create_error_context(
                 deployment_mode=DeploymentMode.AGENTCORE,
                 tool_name=function_name,
                 lambda_context=context,
-                agentcore_event=event,
+                agentcore_event=safe_event,
             )
 
             # Create error handler for AgentCore protocol
@@ -311,7 +307,8 @@ def lambda_error_handler(func):
             error_handler = None
 
         # Create a span for the entire Lambda execution
-        with _tracer.start_as_current_span(f"lambda_{function_name}") as span:
+        tracer = _tracer or trace.get_tracer(__name__)
+        with tracer.start_as_current_span(f"lambda_{function_name}") as span:
             try:
                 # Add Lambda context attributes (AWS best practices)
                 span.set_attribute("lambda.function_name", context.function_name)
@@ -339,7 +336,7 @@ def lambda_error_handler(func):
                         )
 
                 logger.info(
-                    f"Processing {function_name} request - RequestId: {context.aws_request_id}"
+                    f"Processing {function_name} request - RequestId: {context.aws_request_id}, Event type: {type(event)}"
                 )
 
                 # Execute the wrapped function
@@ -356,7 +353,14 @@ def lambda_error_handler(func):
                     f"{function_name} completed successfully in {execution_time:.3f}s"
                 )
 
-                return result
+                # Format successful response in AgentCore format
+                return {
+                    "messageVersion": "1.0",
+                    "response": {
+                        "body": json.dumps(result, default=str, ensure_ascii=False),
+                        "contentType": "application/json",
+                    },
+                }
 
             except Exception as e:
                 # Calculate execution time

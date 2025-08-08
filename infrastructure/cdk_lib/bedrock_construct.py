@@ -9,6 +9,9 @@ import json
 from pathlib import Path
 
 from aws_cdk import (
+    Stack,
+)
+from aws_cdk import (
     aws_bedrock as bedrock,
 )
 from aws_cdk import (
@@ -17,7 +20,6 @@ from aws_cdk import (
 from aws_cdk import (
     aws_lambda as lambda_,
 )
-
 from constructs import Construct
 
 
@@ -45,6 +47,10 @@ class BedrockAgentConstruct(Construct):
         self.weather_function = weather_function
         self.alerts_function = alerts_function
 
+        # Get AWS account and region for ARN construction
+        self.account = Stack.of(self).account
+        self.region = Stack.of(self).region
+
         # Create Bedrock Guardrail for security
         self.guardrail = self._create_bedrock_guardrail()
 
@@ -58,6 +64,8 @@ class BedrockAgentConstruct(Construct):
             "LocationWeatherGuardrail",
             name="location-weather-guardrail",
             description="Guardrail for location weather service to prevent misuse",
+            blocked_input_messaging="This input is blocked by the guardrail policy.",
+            blocked_outputs_messaging="This output is blocked by the guardrail policy.",
             content_policy_config={
                 "filtersConfig": [
                     {
@@ -92,30 +100,31 @@ class BedrockAgentConstruct(Construct):
                     {"type": "PHONE", "action": "BLOCK"},
                     {"type": "EMAIL", "action": "BLOCK"},
                     {"type": "CREDIT_DEBIT_CARD_NUMBER", "action": "BLOCK"},
-                    {"type": "SSN", "action": "BLOCK"},
-                    {"type": "BANK_ACCOUNT_NUMBER", "action": "BLOCK"},
-                    {"type": "BANK_ROUTING", "action": "BLOCK"},
-                    {"type": "PASSPORT_NUMBER", "action": "BLOCK"},
+                    {"type": "US_SOCIAL_SECURITY_NUMBER", "action": "BLOCK"},
+                    {"type": "US_BANK_ACCOUNT_NUMBER", "action": "BLOCK"},
+                    {"type": "US_BANK_ROUTING_NUMBER", "action": "BLOCK"},
+                    {"type": "US_PASSPORT_NUMBER", "action": "BLOCK"},
                     {"type": "DRIVER_ID", "action": "BLOCK"},
                     {"type": "LICENSE_PLATE", "action": "BLOCK"},
-                    {"type": "VEHICLE_VIN", "action": "BLOCK"},
                     {"type": "USERNAME", "action": "BLOCK"},
                     {"type": "PASSWORD", "action": "BLOCK"},
-                    {"type": "PIN", "action": "BLOCK"},
-                    {"type": "NAME", "action": "BLOCK"},
+                    # NOTE: NAME is intentionally excluded as location services require place names
                     # NOTE: ADDRESS is intentionally excluded as location services require address processing
                     # US_STATE, CITY, ZIP_CODE, COUNTRY are also allowed for location queries
+                    # Removed VEHICLE_VIN and PIN as they may not be supported in all regions
                 ]
             },
             topic_policy_config={
                 "topicsConfig": [
                     {
-                        "name": "Weather and Location Only",
-                        "definition": "Only respond to weather and location-related queries. Refuse requests for other topics.",
+                        "name": "Non-Weather Topics",
+                        "definition": "Topics unrelated to weather, location, or travel that should be blocked",
                         "examples": [
-                            "What's the weather in Seattle?",
-                            "Find restaurants near me",
-                            "Route from New York to Boston",
+                            "Tell me a joke",
+                            "What is the meaning of life?",
+                            "Help me with my homework",
+                            "Write me a poem",
+                            "What's your favorite movie?",
                         ],
                         "type": "DENY",
                     }
@@ -143,6 +152,34 @@ class BedrockAgentConstruct(Construct):
                 resources=[
                     self.weather_function.function_arn,
                     self.alerts_function.function_arn,
+                ],
+            )
+        )
+
+        # Add permissions for the agent to invoke Bedrock models
+        agent_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "bedrock:InvokeModel",
+                    "bedrock:InvokeModelWithResponseStream",
+                ],
+                resources=[
+                    f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0",
+                    f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-*",
+                ],
+            )
+        )
+
+        # Add permissions for the agent to use guardrails
+        agent_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "bedrock:ApplyGuardrail",
+                ],
+                resources=[
+                    f"arn:aws:bedrock:{self.region}:{self.account}:guardrail/*",
                 ],
             )
         )

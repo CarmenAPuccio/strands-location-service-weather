@@ -88,17 +88,16 @@ class GuardrailConfig:
                 "PHONE",
                 "EMAIL",
                 "CREDIT_DEBIT_CARD_NUMBER",
-                "SSN",
-                "BANK_ACCOUNT_NUMBER",
-                "BANK_ROUTING",
-                "PASSPORT_NUMBER",
+                "US_SOCIAL_SECURITY_NUMBER",
+                "US_BANK_ACCOUNT_NUMBER",
+                "US_BANK_ROUTING_NUMBER",
+                "US_PASSPORT_NUMBER",
                 "DRIVER_ID",
                 "LICENSE_PLATE",
-                "VEHICLE_VIN",
                 "USERNAME",
                 "PASSWORD",
-                "PIN",
                 "NAME",  # Block personal names for privacy
+                # Removed VEHICLE_VIN and PIN as they may not be supported in all regions
             ]
 
         if self.allowed_pii_types is None:

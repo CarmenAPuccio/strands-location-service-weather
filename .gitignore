@@ -209,3 +209,20 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# AWS CDK
+*.d.ts
+*.js
+*.js.map
+node_modules/
+cdk.out/
+cdk.context.json
+lambda-packages/
+.cdk.staging/
+.parcel-cache/
+
+# CDK specific
+infrastructure/cdk.out/
+infrastructure/lambda-packages/
+infrastructure/layers/
+infrastructure/cdk.context.json

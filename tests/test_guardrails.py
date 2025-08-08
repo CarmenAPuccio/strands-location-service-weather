@@ -48,9 +48,9 @@ class TestGuardrailConfig:
         assert "USERNAME" in config.blocked_pii_types
 
         # Sensitive financial/identity PII should be blocked
-        assert "SSN" in config.blocked_pii_types
+        assert "US_SOCIAL_SECURITY_NUMBER" in config.blocked_pii_types
         assert "CREDIT_DEBIT_CARD_NUMBER" in config.blocked_pii_types
-        assert "BANK_ACCOUNT_NUMBER" in config.blocked_pii_types
+        assert "US_BANK_ACCOUNT_NUMBER" in config.blocked_pii_types
         assert "PASSWORD" in config.blocked_pii_types
 
         # Only location-related PII should be in allowed types
@@ -77,9 +77,9 @@ class TestGuardrailConfig:
         ]
 
         # Sensitive financial/identity PII should be blocked
-        assert "SSN" in blocked_types
+        assert "US_SOCIAL_SECURITY_NUMBER" in blocked_types
         assert "CREDIT_DEBIT_CARD_NUMBER" in blocked_types
-        assert "BANK_ACCOUNT_NUMBER" in blocked_types
+        assert "US_BANK_ACCOUNT_NUMBER" in blocked_types
         assert "PASSWORD" in blocked_types
 
         # Contact info should be blocked for weather/location service
@@ -634,7 +634,7 @@ class TestLocationServiceGuardrailPolicy:
         # Should block sensitive PII
         assert "PHONE" in blocked_pii
         assert "EMAIL" in blocked_pii
-        assert "SSN" in blocked_pii
+        assert "US_SOCIAL_SECURITY_NUMBER" in blocked_pii
         assert "CREDIT_DEBIT_CARD_NUMBER" in blocked_pii
 
         # Should NOT block address-related PII (they're not in the blocked list)

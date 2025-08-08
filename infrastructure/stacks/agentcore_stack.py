@@ -9,9 +9,9 @@ best practices for Python project structure.
 from aws_cdk import (
     Stack,
 )
+from cdk_lib.bedrock_construct import BedrockAgentConstruct
+from cdk_lib.lambda_construct import WeatherLambdaConstruct
 from constructs import Construct
-from constructs.bedrock_construct import BedrockAgentConstruct
-from constructs.lambda_construct import WeatherLambdaConstruct
 
 
 class LocationWeatherAgentCoreStack(Stack):

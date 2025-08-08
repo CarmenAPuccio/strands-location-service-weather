@@ -10,73 +10,44 @@ infrastructure/
 ├── cdk.json                    # CDK configuration
 ├── requirements.txt            # CDK Python dependencies
 ├── deploy.py                   # Deployment automation script
+├── build_lambda_layers.py      # Lambda layers and functions build script
 ├── README.md                   # This file
 ├── stacks/
 │   ├── __init__.py
 │   └── agentcore_stack.py      # Main CDK stack definition
-├── constructs/
+├── cdk_lib/
 │   ├── __init__.py
-│   ├── lambda_construct.py     # Lambda functions construct
+│   ├── lambda_construct.py     # Lambda functions construct (with layers)
 │   └── bedrock_construct.py    # Bedrock agent construct
-└── lambda-packages/            # Generated Lambda deployment packages
-    ├── get-weather/
-    └── get-alerts/
+├── lambda_functions/           # Original Lambda function source
+│   ├── shared/
+│   ├── get_weather/
+│   └── get_alerts/
+
+└── layers/                     # Generated Lambda layers
+    ├── dependencies/           # Python dependencies layer
+    └── shared-code/           # Shared code layer
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-1. **Install AWS CDK CLI**:
+1. **Install dependencies**: Ensure you have uv installed and run `uv sync` from the project root
+2. **Configure AWS credentials**: Set up your AWS credentials via `aws configure` or environment variables
+3. **Install AWS CDK CLI**: See the [CDK Deployment Notes](../docs/DEPLOYMENT_NOTES.md) for detailed setup instructions
+
+### Build and Deploy
+
+1. **Build Lambda layers and functions**:
    ```bash
-   npm install -g aws-cdk
+   uv run python infrastructure/build_lambda_layers.py
    ```
 
-2. **Configure AWS credentials**:
+2. **Deploy the stack**:
    ```bash
-   aws configure
-   # or set environment variables
-   export AWS_ACCESS_KEY_ID=your-key
-   export AWS_SECRET_ACCESS_KEY=your-secret
-   export AWS_REGION=us-east-1
+   cd infrastructure && cdk deploy
    ```
-
-3. **Install Python dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-### Deployment
-
-#### Option 1: Automated Deployment (Recommended)
-
-```bash
-# Basic deployment
-python deploy.py
-
-# Custom configuration
-python deploy.py \
-  --region us-west-2 \
-  --function-prefix my-weather \
-  --weather-api-timeout 15 \
-  --auto-approve
-```
-
-#### Option 2: Manual CDK Commands
-
-```bash
-# Bootstrap CDK (first time only)
-cdk bootstrap
-
-# Synthesize stack
-cdk synth
-
-# Deploy stack
-cdk deploy
-
-# Destroy stack
-cdk destroy
-```
 
 ## Configuration
 
@@ -99,6 +70,7 @@ python deploy.py --help
 ```
 
 Available options:
+
 - `--region`: AWS region (default: us-east-1)
 - `--profile`: AWS profile name
 - `--function-prefix`: Prefix for function names
@@ -114,14 +86,17 @@ Available options:
 ### Components Created
 
 1. **Lambda Functions**:
+
    - `{prefix}-get-weather`: Weather information retrieval
    - `{prefix}-get-alerts`: Weather alerts retrieval
 
 2. **IAM Roles**:
+
    - Lambda execution role with CloudWatch and X-Ray permissions
    - AgentCore agent role with Lambda invoke permissions
 
 3. **Bedrock Resources**:
+
    - Guardrail for content filtering and security
    - AgentCore agent with action groups
 
@@ -138,47 +113,96 @@ Available options:
 
 ## Development
 
-### Adding New Constructs
+For detailed development instructions, testing procedures, and deployment workflows, see the [CDK Deployment Notes](../docs/DEPLOYMENT_NOTES.md).
 
-1. Create new construct in `constructs/` directory
-2. Import and use in `stacks/agentcore_stack.py`
-3. Update tests and documentation
+## Deployment
 
-### Modifying Lambda Functions
+### Lambda Deployment with CDK
 
-1. Update source code in `../src/strands_location_service_weather/`
-2. Run deployment script to repackage and deploy
-3. Test changes using AWS Console or CLI
+The infrastructure uses AWS CDK for automated deployment with Lambda layers for optimal performance and maintainability.
 
-### Testing
+#### 1. Build Lambda Layers
 
 ```bash
-# Synthesize without deploying
-cdk synth
-
-# Validate stack
-cdk diff
-
-# Export schemas for validation
-python deploy.py --schemas-only
+# Build dependencies and shared code layers
+uv run python infrastructure/build_lambda_layers.py
 ```
+
+This creates:
+- **Dependencies layer**: Python packages (requests, opentelemetry, etc.)
+- **Shared code layer**: Common Lambda utilities and source modules
+
+#### 2. Deploy Infrastructure
+
+```bash
+# Deploy the complete stack
+cd infrastructure && cdk deploy
+```
+
+This creates:
+- **Lambda Functions**: `get_weather` and `get_alerts` with layers
+- **IAM Roles**: Execution roles with minimal required permissions
+- **Bedrock Agent**: AgentCore agent with action groups
+- **Guardrails**: Content filtering and security policies
+- **Monitoring**: CloudWatch logs and X-Ray tracing
+
+#### 3. AgentCore Integration
+
+The deployed Lambda functions are automatically configured as AgentCore action groups:
+
+- **Weather Action Group**: `/get_weather` endpoint
+- **Alerts Action Group**: `/get_alerts` endpoint
+- **OpenAPI Schemas**: Auto-generated from function signatures
+- **Error Handling**: Standardized AgentCore response format
+
+#### Environment Variables
+
+Key Lambda environment variables (set automatically by CDK):
+
+```bash
+WEATHER_API_TIMEOUT=10                    # Weather API timeout
+OTEL_SERVICE_NAME=location-weather-lambda # Tracing service name
+AWS_REGION=us-east-1                     # AWS region
+```
+
+#### Testing Deployed Functions
+
+```bash
+# Test weather function
+aws lambda invoke \
+  --function-name agentcore-weather-get-weather \
+  --payload '{"parameters":[{"name":"latitude","value":"47.6062","type":"number"},{"name":"longitude","value":"-122.3321","type":"number"}]}' \
+  response.json
+
+# Test alerts function  
+aws lambda invoke \
+  --function-name agentcore-weather-get-alerts \
+  --payload '{"parameters":[{"name":"latitude","value":"47.6062","type":"number"},{"name":"longitude","value":"-122.3321","type":"number"}]}' \
+  response.json
+```
+
+For detailed deployment instructions and best practices, see [CDK Deployment Notes](../docs/DEPLOYMENT_NOTES.md).
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **CDK Bootstrap Required**:
+
    ```bash
    cdk bootstrap
    ```
 
 2. **Permission Denied**:
+
    - Check AWS credentials and permissions
    - Ensure IAM user has CDK deployment permissions
 
-3. **Lambda Package Too Large**:
-   - Check dependencies in Lambda packages
-   - Consider using Lambda layers for large dependencies
+3. **Lambda Layer Build Issues**:
+
+   - Ensure `uv` is installed and available
+   - Run `uv run python infrastructure/build_lambda_layers.py` to rebuild layers
+   - Check that dependencies are properly installed in the layers
 
 4. **Bedrock Service Not Available**:
    - Ensure Bedrock is available in your region
@@ -187,11 +211,13 @@ python deploy.py --schemas-only
 ### Debug Mode
 
 Enable verbose CDK output:
+
 ```bash
 cdk deploy --verbose
 ```
 
 View CloudWatch logs:
+
 ```bash
 aws logs tail /aws/lambda/agentcore-weather-get-weather --follow
 ```

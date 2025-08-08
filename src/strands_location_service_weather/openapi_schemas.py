@@ -68,23 +68,30 @@ def python_type_to_openapi_type(python_type: type) -> dict[str, Any]:
         dict: {"type": "object"},
     }
 
-    # Handle typing module types
-    if hasattr(python_type, "__origin__"):
-        origin = python_type.__origin__
+    # Handle typing module types and new union syntax
+    if hasattr(python_type, "__origin__") or hasattr(python_type, "__args__"):
+        origin = getattr(python_type, "__origin__", None)
+        args = getattr(python_type, "__args__", ())
+
+        # Handle List[T] types
         if origin is list or origin is list:
-            # Handle List[T] types
-            args = getattr(python_type, "__args__", ())
             if args:
                 item_type = python_type_to_openapi_type(args[0])
                 return {"type": "array", "items": item_type}
             return {"type": "array", "items": {"type": "string"}}
+
+        # Handle Dict types
         elif origin is dict or origin is dict:
             return {"type": "object"}
-        elif origin is Union:
-            # Handle Optional[T] and Union types
-            args = getattr(python_type, "__args__", ())
+
+        # Handle Union types (including new | syntax and Optional)
+        elif (
+            origin is Union
+            or str(origin) == "<class 'types.UnionType'>"
+            or (args and len(args) == 2 and type(None) in args)
+        ):
             if len(args) == 2 and type(None) in args:
-                # This is Optional[T]
+                # This is Optional[T] or T | None
                 non_none_type = args[0] if args[1] is type(None) else args[1]
                 schema = python_type_to_openapi_type(non_none_type)
                 schema["nullable"] = True

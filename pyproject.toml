@@ -20,6 +20,9 @@ dependencies = [
     "opentelemetry-instrumentation-requests>=0.40b0",
     "fastmcp>=0.1.0",
     "tomli>=2.0.0; python_version<'3.11'",
+    # CDK dependencies for infrastructure
+    "aws-cdk-lib>=2.150.0",
+    "constructs==10.3.0",
 ]
 
 [project.optional-dependencies]
