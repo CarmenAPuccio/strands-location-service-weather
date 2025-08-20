@@ -16,15 +16,53 @@ This project combines Amazon Location Service MCP Server with weather data to pr
 - **High Performance**: Optimized HTTP session reuse and streamlined processing (~18s response time)
 - **Observability**: Full OpenTelemetry integration with tracing, logging, and metrics
 - **Error Handling**: Robust error handling with graceful degradation
+- **OpenAPI Schema Generation**: Automatic generation of OpenAPI 3.0 schemas for Bedrock Agent action groups
 
 ## Architecture
 
-The application uses a unified architecture where:
+The application uses a unified architecture with multiple deployment modes:
+
+- **Local Mode**: Direct Python execution for development and testing
+- **MCP Server Mode**: FastMCP server compatible with Amazon Q CLI
+- **Bedrock Agent Mode**: AWS Lambda functions with Bedrock Agent integration
+
+### Key Components
 
 - MCP (Model Context Protocol) tools provide Amazon Location Service integration
 - Custom weather tools fetch data from the National Weather Service API
+- Lambda layers for shared dependencies and code (Bedrock Agent mode)
 - A single LocationWeatherClient class handles all Bedrock interactions
-- OpenTelemetry provides comprehensive observability
+- OpenTelemetry provides comprehensive observability across all modes
+
+## Deployment Modes
+
+### Bedrock Agent Deployment
+
+For production AWS deployment with Bedrock Agents:
+
+```bash
+# Build Lambda layers and functions
+uv run python infrastructure/build_lambda_layers.py
+
+# Deploy AWS infrastructure
+cd infrastructure && cdk deploy
+```
+
+This creates:
+- Lambda functions with proper layers for dependencies
+- Bedrock Agent with guardrails
+- CloudWatch logging and monitoring
+- IAM roles with least-privilege access
+
+### Local Development
+
+```bash
+# Run locally
+uv run location-weather
+
+# Run as MCP server
+uv run location-weather-mcp
+```
 
 ## OpenTelemetry Observability
 
@@ -228,6 +266,22 @@ Key environment variables:
 - `WEATHER_API_TIMEOUT` - Request timeout in seconds (default: 10)
 - `FASTMCP_LOG_LEVEL` - FastMCP logging level (default: ERROR)
 
+#### Multi-Mode Deployment Configuration
+
+The application supports multiple deployment modes for different use cases:
+
+- `DEPLOYMENT_MODE` - Deployment mode: `local`, `mcp`, or `bedrock_agent` (default: `local`)
+- `BEDROCK_AGENT_ID` - AWS Bedrock Agent ID (required for `bedrock_agent` mode)
+- `BEDROCK_AGENT_ALIAS_ID` - Bedrock Agent alias ID (default: `TSTALIASID`)
+- `BEDROCK_AGENT_SESSION_ID` - Bedrock Agent session ID for session continuity (optional)
+- `BEDROCK_AGENT_ENABLE_TRACE` - Enable Bedrock Agent tracing (default: `true`)
+- `DEPLOYMENT_TIMEOUT` - Deployment-specific timeout in seconds (default: 30)
+- `GUARDRAIL_ID` - Bedrock Guardrail ID for content filtering (optional)
+- `GUARDRAIL_VERSION` - Guardrail version (default: `DRAFT`)
+- `GUARDRAIL_CONTENT_FILTERING` - Enable content filtering (default: `true`)
+- `GUARDRAIL_PII_DETECTION` - Enable PII detection (default: `true`)
+- `GUARDRAIL_TOXICITY_DETECTION` - Enable toxicity detection (default: `true`)
+
 
 ### Config File
 
@@ -249,6 +303,171 @@ Environment variables take precedence over all config files.
 1. Environment variables
 2. `config.local.toml` (local overrides)
 3. `config.toml` (project defaults)
+
+## Deployment Modes
+
+The application supports three deployment modes to accommodate different use cases:
+
+> **📋 For AWS CDK Infrastructure Deployment**: See [CDK Deployment Notes](docs/DEPLOYMENT_NOTES.md) for detailed instructions on deploying the Bedrock Agent infrastructure.
+
+### LOCAL Mode (Default)
+- **Use Case**: Local development and testing
+- **Model**: Amazon Bedrock with direct API calls
+- **Tools**: Full MCP tools + custom weather tools
+- **Configuration**: Standard Bedrock model configuration
+
+```bash
+# Run in local mode (default)
+DEPLOYMENT_MODE=local uv run location-weather
+
+# Or simply (defaults to local mode)
+uv run location-weather
+```
+
+### MCP Mode
+- **Use Case**: Integration with MCP-compatible clients (like Amazon Q CLI)
+- **Model**: Amazon Bedrock with MCP server interface
+- **Tools**: Full MCP tools + custom weather tools (10 total)
+- **Configuration**: Same as LOCAL mode but optimized for MCP clients
+
+```bash
+# Run in MCP mode
+DEPLOYMENT_MODE=mcp uv run location-weather-mcp
+
+# Or simply (MCP server mode)
+uv run location-weather-mcp
+```
+
+### BEDROCK_AGENT Mode
+- **Use Case**: AWS Bedrock Agent integration with pre-configured agents
+- **Model**: AWS Bedrock Agent with agent runtime invocation
+- **Tools**: Lambda-based weather and location tools (3 total)
+- **Configuration**: Requires Bedrock Agent ID, alias, and optional session ID
+- **Architecture**: Location services configured as Action Groups within the Bedrock Agent
+
+```bash
+# Run in Bedrock Agent mode (example with deployed agent)
+DEPLOYMENT_MODE=bedrock_agent \
+BEDROCK_AGENT_ID=YOUR_AGENT_ID \
+uv run location-weather
+
+# With optional configuration
+DEPLOYMENT_MODE=bedrock_agent \
+BEDROCK_AGENT_ID=YOUR_AGENT_ID \
+BEDROCK_AGENT_ALIAS_ID=TSTALIASID \
+BEDROCK_AGENT_SESSION_ID=unique-session-id \
+uv run location-weather
+```
+
+**Bedrock Agent Setup Requirements:**
+- Pre-configured Bedrock Agent with location service action groups
+- Proper IAM permissions for Bedrock Agent invocation
+- Action groups configured for Amazon Location Service APIs
+- Optional guardrails for content filtering
+
+For detailed Lambda function deployment instructions, see [infrastructure/README.md](infrastructure/README.md#deployment).
+
+### Mode-Specific Configuration
+
+Each mode can be configured programmatically:
+
+```python
+from strands_location_service_weather import LocationWeatherClient, DeploymentMode
+
+# Local mode (default)
+client = LocationWeatherClient(deployment_mode=DeploymentMode.LOCAL)
+
+# MCP mode
+client = LocationWeatherClient(deployment_mode=DeploymentMode.MCP)
+
+# Bedrock Agent mode with configuration
+client = LocationWeatherClient(
+    deployment_mode=DeploymentMode.BEDROCK_AGENT,
+    config_override={
+        "bedrock_agent_id": "your-agent-id",
+        "aws_region": "us-east-1"
+    }
+)
+
+# Get deployment information
+info = client.get_deployment_info()
+print(f"Mode: {info.mode}, Model: {info.model_type}, Tools: {info.tools_count}")
+
+# Health check
+health = client.health_check()
+print(f"Healthy: {health.healthy}, Model OK: {health.model_healthy}")
+```
+
+## OpenAPI Schema Generation
+
+The application includes comprehensive OpenAPI 3.0 schema generation for AWS Bedrock Agent action groups. This enables automatic creation of action group definitions from Python tool functions.
+
+### Features
+
+- **Automatic Schema Generation**: Converts Python functions to OpenAPI 3.0 schemas
+- **Type Inference**: Supports all Python types including Optional, List, Dict, Union
+- **Bedrock Agent Compliance**: Validates schemas for AWS Bedrock Agent compatibility
+- **CLI Tools**: Complete command-line interface for generation and validation
+- **Comprehensive Validation**: 25+ validation rules with detailed error reporting
+
+### Generated Schemas
+
+The system generates schemas for two action groups:
+
+- **Weather Services**: `get_weather`, `get_alerts`, `current_time` operations
+- **Location Services**: `search_places`, `calculate_route` operations
+
+### CLI Usage
+
+```bash
+# Generate all schemas and export to files
+uv run python -m src.strands_location_service_weather.schema_cli generate --output-dir infrastructure/schemas
+
+# Validate all generated schemas
+uv run python -m src.strands_location_service_weather.schema_cli validate --verbose
+
+# Show a specific schema
+uv run python -m src.strands_location_service_weather.schema_cli show weather_services
+
+# Generate validation report
+uv run python -m src.strands_location_service_weather.schema_cli report --output validation_report.md
+
+# List all available schemas
+uv run python -m src.strands_location_service_weather.schema_cli list
+
+# Validate a specific schema file
+uv run python -m src.strands_location_service_weather.schema_cli validate-file ./schemas/weather_action_group.json
+```
+
+### Programmatic Usage
+
+```python
+from src.strands_location_service_weather.openapi_schemas import (
+    create_weather_action_group_schema,
+    create_location_action_group_schema,
+    get_all_action_group_schemas
+)
+from src.strands_location_service_weather.schema_validation import validate_all_schemas
+
+# Generate schemas
+weather_schema = create_weather_action_group_schema()
+location_schema = create_location_action_group_schema()
+all_schemas = get_all_action_group_schemas()
+
+# Validate schemas
+validation_results = validate_all_schemas()
+for name, result in validation_results.items():
+    print(f"{name}: {'VALID' if result.valid else 'INVALID'}")
+```
+
+### Schema Files
+
+Generated schemas are saved to `infrastructure/schemas/`:
+- `weather_action_group.json` - Weather services OpenAPI schema
+- `location_action_group.json` - Location services OpenAPI schema
+- `validation_report.md` - Comprehensive validation report
+
+These schemas can be used directly with AWS CDK or CloudFormation to create Bedrock Agent action groups.
 
 ## Usage
 
@@ -279,9 +498,55 @@ To use with Amazon Q CLI or other MCP clients:
 uv run location-weather-mcp
 ```
 
-See [MCP_SETUP.md](MCP_SETUP.md) for detailed Q CLI configuration instructions.
+See [MCP Setup Guide](docs/mcp-setup.md) for detailed Q CLI configuration instructions.
+
+## Documentation
+
+Additional documentation is available in the `docs/` directory:
+
+- **[MCP Setup Guide](docs/mcp-setup.md)** - Detailed Q CLI configuration and usage instructions
+- **[Error Handling Implementation](docs/error-handling-implementation.md)** - Comprehensive error handling and fallback mechanisms
+- **[OpenTelemetry & MCP Alignment](docs/opentelemetry-mcp-alignment.md)** - Best practices compliance and standards alignment
+- **[Tool Integration Best Practices](docs/tool-integration-best-practices.md)** - Guidelines for tool development and integration
+- **[Guardrails Best Practices](docs/guardrails-best-practices.md)** - Security and content filtering guidelines
 
 **Note**: This project includes automated CI/CD via GitHub Actions. All tests, formatting, and linting checks run automatically on pull requests.
+
+## Deployment
+
+### AWS Lambda Deployment (Bedrock Agent Mode)
+
+For production use with AWS Bedrock Agents, deploy the weather tools as Lambda functions:
+
+```bash
+# 1. Build Lambda layers (dependencies and shared code)
+uv run python infrastructure/build_lambda_layers.py
+
+# 2. Deploy infrastructure with CDK
+cd infrastructure && cdk deploy
+```
+
+This creates:
+- **Lambda Functions**: Weather and alerts tools with optimized layers
+- **Bedrock Agent**: Bedrock agent with action groups pre-configured
+- **IAM Roles**: Minimal required permissions for security
+- **Monitoring**: CloudWatch logs and distributed tracing
+
+The deployed Lambda functions automatically integrate with your Bedrock agent and can be invoked through the Bedrock Agent runtime.
+
+For detailed deployment instructions, see [infrastructure/README.md](infrastructure/README.md#deployment).
+
+### Local Development
+
+For development and testing, use the local CLI mode:
+
+```bash
+# Interactive CLI
+uv run location-weather
+
+# MCP server for Q CLI integration
+uv run location-weather-mcp
+```
 
 ## Development Workflow
 

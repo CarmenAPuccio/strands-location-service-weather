@@ -95,7 +95,8 @@ def main():
         )
         logger.info("Type 'exit' to quit.")
 
-    client = LocationWeatherClient()
+    # Initialize client with deployment mode from config
+    client = LocationWeatherClient(deployment_mode=config.deployment.mode)
 
     while True:
         # Print a newline before the prompt to separate from any previous output
@@ -113,7 +114,8 @@ def main():
                 # Add attributes to the span
                 span.set_attribute("user.input", user_input)
                 span.set_attribute("response.length", len(str(response)))
-                # Response is automatically printed by the strands library
+                # Print the response (strands library only auto-prints for direct agent mode)
+                print(response)
         except Exception as e:
             logger.error("An error occurred. Please try again.")
             logger.error(f"Error processing input: {e}")

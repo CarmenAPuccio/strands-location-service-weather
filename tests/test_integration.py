@@ -14,21 +14,12 @@ class TestIntegration:
     """Test end-to-end integration scenarios."""
 
     @responses.activate
-    @patch("src.strands_location_service_weather.location_weather.Agent")
-    @patch("src.strands_location_service_weather.location_weather.BedrockModel")
+    @patch("src.strands_location_service_weather.model_factory.BedrockModel")
     @patch("src.strands_location_service_weather.location_weather.stdio_mcp_client")
-    def test_complete_weather_query_flow(self, mock_mcp, mock_bedrock, mock_agent):
+    def test_complete_weather_query_flow(self, mock_mcp, mock_bedrock):
         """Test complete flow from query to response."""
         # Setup mocks
         mock_mcp.list_tools_sync.return_value = []
-        mock_agent_instance = Mock()
-        mock_agent.return_value = mock_agent_instance
-
-        # Mock the agent to simulate tool calls
-        mock_agent_instance.return_value = Mock()
-        mock_agent_instance.return_value.__str__ = Mock(
-            return_value="Weather: 72°F, no alerts"
-        )
 
         # Mock weather API responses
         responses.add(
@@ -42,12 +33,17 @@ class TestIntegration:
             status=200,
         )
 
+        # Create client and mock the agent directly on the instance
         client = LocationWeatherClient()
+        mock_agent_instance = Mock()
+        mock_agent_instance.return_value = "Weather: 72°F, no alerts"
+        client.agent = mock_agent_instance
+
         result = client.chat("What's the weather in Seattle?")
 
         # Verify agent was called with the query
         mock_agent_instance.assert_called_with("What's the weather in Seattle?")
-        assert isinstance(result, str)
+        assert result == "Weather: 72°F, no alerts"
 
     def test_tool_registration(self):
         """Test that all required tools are registered."""

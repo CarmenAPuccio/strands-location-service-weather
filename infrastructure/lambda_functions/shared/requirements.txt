@@ -1,0 +1,14 @@
+# Core dependencies for Lambda functions
+requests>=2.31.0
+
+# Minimal OpenTelemetry dependencies (without grpc to avoid platform issues)
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-instrumentation-requests>=0.41b0
+
+# Note: Removed grpc-based exporters to avoid platform compatibility issues
+# AWS Lambda provides its own tracing via X-Ray if needed
+
+# AWS SDK is available in Lambda runtime, but we include minimal versions
+# boto3>=1.34.0  # Available in Lambda runtime
+# botocore>=1.34.0  # Available in Lambda runtime

@@ -3,20 +3,22 @@ Location and weather services with Bedrock integration.
 This module combines location services, weather data, and Bedrock LLM capabilities.
 """
 
-import json
 import logging
+import os
+import uuid
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+import boto3
 import requests
 from mcp import StdioServerParameters, stdio_client
 from opentelemetry import trace
 from strands import Agent, tool
-from strands.models import BedrockModel
 from strands.tools.mcp import MCPClient
-from strands_tools import current_time
+from strands_tools.current_time import current_time
 
-from .config import config
+from .config import DeploymentMode, config
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -40,22 +42,29 @@ Be concise and helpful."""
 # Get a tracer for this module
 tracer = trace.get_tracer(__name__)
 
-# Initialize MCP client and tools
-logger.info("Initializing MCP client")
-stdio_mcp_client = MCPClient(
-    lambda: stdio_client(
-        StdioServerParameters(
-            command=config.mcp.command, args=[config.mcp.server_package]
+# Initialize MCP client and tools - moved to function to avoid module-level execution issues
+stdio_mcp_client = None
+mcp_tools = []
+
+
+def _initialize_mcp_client():
+    """Initialize MCP client and tools."""
+    global stdio_mcp_client, mcp_tools
+    if stdio_mcp_client is None:
+        logger.info("Initializing MCP client")
+        stdio_mcp_client = MCPClient(
+            lambda: stdio_client(
+                StdioServerParameters(
+                    command=config.mcp.command, args=[config.mcp.server_package]
+                )
+            )
         )
-    )
-)
+        stdio_mcp_client.start()
+        logger.info("MCP client started successfully")
 
-stdio_mcp_client.start()
-logger.info("MCP client started successfully")
-
-# Get all available tools from the MCP server
-mcp_tools = stdio_mcp_client.list_tools_sync()
-logger.info(f"Loaded {len(mcp_tools)} tools from MCP server")
+        # Get all available tools from the MCP server
+        mcp_tools = stdio_mcp_client.list_tools_sync()
+        logger.info(f"Loaded {len(mcp_tools)} tools from MCP server")
 
 
 @tool
@@ -312,6 +321,28 @@ def get_alerts(latitude: float, longitude: float) -> list[dict[str, Any]]:
             return [{"error": error_msg}]
 
 
+@dataclass
+class DeploymentInfo:
+    """Information about the current deployment configuration."""
+
+    mode: DeploymentMode
+    model_type: str
+    model_id: str | None
+    agent_id: str | None
+    region: str
+    tools_count: int
+
+
+@dataclass
+class HealthStatus:
+    """Health status information for the client."""
+
+    healthy: bool
+    model_healthy: bool
+    tools_available: bool
+    error_message: str | None = None
+
+
 class LocationWeatherClient:
     """Client for interacting with location and weather services using Amazon Bedrock."""
 
@@ -320,6 +351,8 @@ class LocationWeatherClient:
         custom_system_prompt=None,
         model_id: str = None,
         region_name: str = None,
+        deployment_mode: DeploymentMode = None,
+        config_override: dict = None,
     ):
         """Initialize the client with Bedrock model and tools.
 
@@ -327,25 +360,38 @@ class LocationWeatherClient:
             custom_system_prompt: Optional custom system prompt to override the default
             model_id: Bedrock model ID to use (defaults to config value)
             region_name: AWS region for Bedrock (defaults to config value)
+            deployment_mode: Deployment mode (defaults to LOCAL)
+            config_override: Optional config overrides
         """
-        # Use config defaults if not provided
-        model_id = model_id or config.bedrock.model_id
-        region_name = region_name or config.bedrock.region_name
+        # Handle deployment mode (default to LOCAL for backward compatibility)
+        if deployment_mode is None:
+            deployment_mode = DeploymentMode.LOCAL
+
+        # Store deployment mode for later use
+        self._deployment_mode = deployment_mode
+
+        # Create deployment configuration
+        from .model_factory import ModelFactory
+
+        deployment_config = self._create_deployment_config(
+            deployment_mode, config_override, model_id, region_name
+        )
         # Get the tracer for this module
         tracer = trace.get_tracer(__name__)
 
         # Create a span for the initialization process
         with tracer.start_as_current_span("agent_initialization") as span:
             try:
-                logger.info("Initializing BedrockModel")
-                span.set_attribute("model_id", model_id)
-                span.set_attribute("region_name", region_name)
+                logger.info(f"Initializing model for {deployment_mode.value} mode")
+                span.set_attribute("deployment_mode", deployment_mode.value)
+                span.set_attribute("model_id", deployment_config.bedrock_model_id)
+                span.set_attribute("region_name", deployment_config.aws_region)
 
-                # Initialize the Bedrock model
-                bedrock_model = BedrockModel(model_id=model_id, region_name=region_name)
+                # Create model using factory (handles different deployment modes)
+                model = ModelFactory.create_model(deployment_config)
 
-                # Combine all tools
-                all_tools = [current_time, get_weather, get_alerts] + mcp_tools
+                # Get tools based on deployment mode
+                all_tools = self._get_tools_for_mode(deployment_mode)
                 tool_count = len(all_tools)
                 logger.info(f"Registered {tool_count} tools")
                 span.set_attribute("tool_count", tool_count)
@@ -356,11 +402,24 @@ class LocationWeatherClient:
                 )
 
                 # Create the agent with the model, tools, and system prompt
-                self.agent = Agent(
-                    model=bedrock_model,
-                    tools=all_tools,
-                    system_prompt=prompt_to_use,
-                )
+                # For BEDROCK_AGENT mode, we handle invocation differently
+                if deployment_mode == DeploymentMode.BEDROCK_AGENT:
+                    # Store configuration for Bedrock Agent runtime invocation
+                    self._bedrock_agent_id = deployment_config.bedrock_agent_id
+                    self._bedrock_agent_region = deployment_config.aws_region
+                    self._bedrock_agent_model = model
+                    self.agent = None  # No direct agent for BEDROCK_AGENT mode
+                    logger.info(
+                        f"Configured for Bedrock Agent runtime: {self._bedrock_agent_id}"
+                    )
+                else:
+                    # LOCAL and MCP modes use direct agent
+                    self.agent = Agent(
+                        model=model,
+                        tools=all_tools,
+                        system_prompt=prompt_to_use,
+                    )
+                    logger.info("Agent created successfully")
                 logger.info("Agent created successfully")
 
             except Exception as e:
@@ -377,7 +436,6 @@ class LocationWeatherClient:
         Returns:
             Agent response as a string
         """
-        # Use the same format as the old version with module name
         logger.info(f"Processing prompt: {prompt}")
 
         # Get the tracer for this module
@@ -389,93 +447,314 @@ class LocationWeatherClient:
                 # Add the prompt as an attribute
                 span.set_attribute("prompt", prompt)
                 span.set_attribute("prompt_length", len(prompt))
+                span.set_attribute("deployment_mode", self._deployment_mode.value)
 
-                # Call the agent within the span, with explicit model call instrumentation
-                with tracer.start_as_current_span(
-                    "bedrock_model_inference"
-                ) as model_span:
-                    # Set model ID attribute from config
-                    model_span.set_attribute("model_id", config.bedrock.model_id)
-
-                    try:
-                        result = self.agent(prompt)
-                    except Exception as model_error:
-                        logger.error(f"Model inference failed: {model_error}")
-                        model_span.record_exception(model_error)
-                        model_span.set_status(
-                            trace.Status(trace.StatusCode.ERROR, str(model_error))
-                        )
-                        # Re-raise to be handled by outer try/except
-                        raise
-
-                    # Capture metrics from the result object
-                    if hasattr(result, "metrics"):
-                        try:
-                            # Add token usage metrics
-                            if hasattr(
-                                result.metrics, "accumulated_usage"
-                            ) and isinstance(result.metrics.accumulated_usage, dict):
-                                for (
-                                    key,
-                                    value,
-                                ) in result.metrics.accumulated_usage.items():
-                                    # Only set attributes for compatible types
-                                    if isinstance(value, str | bool | int | float):
-                                        model_span.set_attribute(
-                                            f"metrics.{key}", value
-                                        )
-
-                            # Add execution time metrics
-                            if (
-                                hasattr(result.metrics, "cycle_durations")
-                                and result.metrics.cycle_durations
-                            ):
-                                total_duration = sum(result.metrics.cycle_durations)
-                                model_span.set_attribute(
-                                    "metrics.total_duration", total_duration
-                                )
-                                model_span.set_attribute(
-                                    "metrics.cycle_count",
-                                    len(result.metrics.cycle_durations),
-                                )
-
-                            # Add tool usage metrics
-                            if (
-                                hasattr(result.metrics, "tool_metrics")
-                                and result.metrics.tool_metrics
-                            ):
-                                tools_used = list(result.metrics.tool_metrics.keys())
-                                model_span.set_attribute(
-                                    "metrics.tools_used", ", ".join(tools_used)
-                                )
-                                model_span.set_attribute(
-                                    "metrics.tool_count", len(tools_used)
-                                )
-                        except Exception as metrics_error:
-                            # Don't fail the whole request if metrics processing fails
-                            logger.warning(
-                                f"Failed to process metrics: {metrics_error}"
-                            )
-                            model_span.set_attribute(
-                                "metrics.error", str(metrics_error)
-                            )
-
-                    # Log the raw message returned by the model in development mode only
-                    if config.opentelemetry.development_mode:
-                        logger.debug("=== Model Raw Message ===")
-                        if hasattr(result, "message"):
-                            message_dict = dict(result.message)
-                            logger.debug(json.dumps(message_dict, indent=2))
-
-                # Add response attributes to the span
-                response_str = str(result)
-                span.set_attribute("response_length", len(response_str))
-
-                return response_str
+                # Handle different deployment modes
+                if self._deployment_mode == DeploymentMode.BEDROCK_AGENT:
+                    return self._invoke_bedrock_agent(prompt, span)
+                else:
+                    return self._invoke_direct_agent(prompt, span)
 
             except Exception as e:
-                logger.error(f"Error processing prompt: {e}")
+                logger.error(f"Agent interaction failed: {e}")
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                # Return a user-friendly error message instead of raising
-                return f"I'm sorry, I encountered an error processing your request. Please try again or rephrase your question. (Error: {str(e)})"
+                # Return a user-friendly error message
+                return f"I apologize, but I encountered an error processing your request: {str(e)}"
+
+    def _invoke_direct_agent(self, prompt: str, span) -> str:
+        """Invoke agent directly for LOCAL and MCP modes."""
+        tracer = trace.get_tracer(__name__)
+        with tracer.start_as_current_span("bedrock_model_inference") as model_span:
+            # Set model ID attribute from config
+            model_span.set_attribute("model_id", config.bedrock.model_id)
+
+            try:
+                result = self.agent(prompt)
+
+                # Process metrics from the result object while span is still active
+                if hasattr(result, "metrics"):
+                    try:
+                        # Add token usage metrics
+                        if hasattr(result.metrics, "accumulated_usage") and isinstance(
+                            result.metrics.accumulated_usage, dict
+                        ):
+                            for key, value in result.metrics.accumulated_usage.items():
+                                # Only set attributes for compatible types
+                                if isinstance(value, str | bool | int | float):
+                                    model_span.set_attribute(f"metrics.{key}", value)
+
+                        # Add execution time metrics
+                        if (
+                            hasattr(result.metrics, "cycle_durations")
+                            and result.metrics.cycle_durations
+                        ):
+                            total_duration = sum(result.metrics.cycle_durations)
+                            model_span.set_attribute(
+                                "metrics.total_duration", total_duration
+                            )
+                            model_span.set_attribute(
+                                "metrics.cycle_count",
+                                len(result.metrics.cycle_durations),
+                            )
+
+                        # Add tool usage metrics
+                        if (
+                            hasattr(result.metrics, "tool_metrics")
+                            and result.metrics.tool_metrics
+                        ):
+                            tools_used = list(result.metrics.tool_metrics.keys())
+                            model_span.set_attribute(
+                                "metrics.tools_used", ", ".join(tools_used)
+                            )
+                            model_span.set_attribute(
+                                "metrics.tool_count", len(tools_used)
+                            )
+                    except Exception as metrics_error:
+                        # Don't fail the whole request if metrics processing fails
+                        logger.warning(f"Failed to process metrics: {metrics_error}")
+                        model_span.set_attribute("metrics.error", str(metrics_error))
+
+            except Exception as model_error:
+                logger.error(f"Model inference failed: {model_error}")
+                model_span.record_exception(model_error)
+                model_span.set_status(
+                    trace.Status(trace.StatusCode.ERROR, str(model_error))
+                )
+                # Re-raise to be handled by outer try/except
+                raise
+
+        # Add response attributes to the span
+        response_text = str(result)
+        span.set_attribute("response_length", len(response_text))
+
+        logger.info("Direct agent interaction completed successfully")
+        return response_text
+
+    def _invoke_bedrock_agent(self, prompt: str, span) -> str:
+        """Invoke Bedrock Agent for BEDROCK_AGENT mode."""
+
+        tracer = trace.get_tracer(__name__)
+        with tracer.start_as_current_span("bedrock_agent_invocation") as agent_span:
+            agent_span.set_attribute("agent_id", self._bedrock_agent_id)
+
+            try:
+                # Create Bedrock Agent Runtime client
+                bedrock_agent_client = boto3.client(
+                    "bedrock-agent-runtime",
+                    region_name=self._bedrock_agent_region,
+                )
+
+                # Generate session ID
+                session_id = str(uuid.uuid4())
+
+                # Invoke the agent
+                response = bedrock_agent_client.invoke_agent(
+                    agentId=self._bedrock_agent_id,
+                    agentAliasId="TSTALIASID",  # Default test alias
+                    sessionId=session_id,
+                    inputText=prompt,
+                )
+
+                # Process streaming response
+                response_text = ""
+                if "completion" in response:
+                    for event in response["completion"]:
+                        if "chunk" in event:
+                            chunk = event["chunk"]
+                            if "bytes" in chunk:
+                                chunk_text = chunk["bytes"].decode("utf-8")
+                                response_text += chunk_text
+
+                agent_span.set_attribute("response_length", len(response_text))
+                logger.info("Bedrock Agent invocation completed successfully")
+                return (
+                    response_text.strip()
+                    if response_text
+                    else "I apologize, but I didn't receive a response from the agent."
+                )
+
+            except Exception as e:
+                error_msg = f"Bedrock Agent invocation failed: {str(e)}"
+                logger.error(error_msg)
+                agent_span.record_exception(e)
+                raise
+
+    def get_deployment_info(self) -> DeploymentInfo:
+        """Get information about the current deployment configuration.
+
+        Returns:
+            DeploymentInfo with current configuration details
+        """
+        # Use the stored deployment mode
+        mode = getattr(self, "_deployment_mode", DeploymentMode.LOCAL)
+
+        # Get model information
+        model_type = "BedrockModel"
+        model_id = None
+        agent_id = None
+        region = None
+
+        if mode == DeploymentMode.BEDROCK_AGENT:
+            # BEDROCK_AGENT mode: Get info from stored configuration
+            agent_id = getattr(self, "_bedrock_agent_id", None)
+            if hasattr(self, "_bedrock_agent_model"):
+                model = self._bedrock_agent_model
+                if hasattr(model, "config") and isinstance(model.config, dict):
+                    model_id = model.config.get("model_id")
+                if hasattr(model, "client") and hasattr(model.client, "meta"):
+                    region = getattr(model.client.meta, "region_name", None)
+        else:
+            # LOCAL and MCP modes: Get info from agent model
+            if hasattr(self, "agent") and self.agent and hasattr(self.agent, "model"):
+                model = self.agent.model
+                # Get model_id from config
+                if hasattr(model, "config") and isinstance(model.config, dict):
+                    model_id = model.config.get("model_id")
+
+                # Try to get region from various sources
+                region = getattr(model, "region_name", None)
+                if (
+                    not region
+                    and hasattr(model, "client")
+                    and hasattr(model.client, "meta")
+                ):
+                    region = getattr(model.client.meta, "region_name", None)
+
+        # Count tools based on deployment mode
+        tools_count = 0
+        if mode == DeploymentMode.BEDROCK_AGENT:
+            # BEDROCK_AGENT mode: Base tools only (3: current_time, get_weather, get_alerts)
+            # Location services are handled by Bedrock Agent action groups
+            tools_count = 3
+        else:
+            # LOCAL and MCP modes: Count tools from agent
+            if (
+                hasattr(self, "agent")
+                and self.agent
+                and hasattr(self.agent, "tool_registry")
+            ):
+                try:
+                    tools_config = self.agent.tool_registry.get_all_tools_config()
+                    tools_count = len(tools_config) if tools_config else 0
+                except Exception:
+                    tools_count = 0
+
+        return DeploymentInfo(
+            mode=mode,
+            model_type=model_type,
+            model_id=model_id,
+            agent_id=agent_id,
+            region=region,
+            tools_count=tools_count,
+        )
+
+    def health_check(self) -> HealthStatus:
+        """Perform a health check on the client and its components.
+
+        Returns:
+            HealthStatus with health information
+        """
+        try:
+            # Check if agent is available
+            if not hasattr(self, "agent") or self.agent is None:
+                return HealthStatus(
+                    healthy=False,
+                    model_healthy=False,
+                    tools_available=False,
+                    error_message="Agent not initialized",
+                )
+
+            # Check model health
+            model_healthy = True
+            try:
+                # Basic model check - see if it has required attributes
+                if not hasattr(self.agent, "model") or self.agent.model is None:
+                    model_healthy = False
+            except Exception:
+                model_healthy = False
+
+            # Check tools availability
+            tools_available = True
+            try:
+                if not hasattr(self.agent, "tools") or not self.agent.tools:
+                    tools_available = False
+                    error_message = "No tools available"
+                elif len(self.agent.tools) == 0:
+                    tools_available = False
+                    error_message = "tools unavailable or invalid"
+                else:
+                    error_message = None
+            except Exception:
+                tools_available = False
+                error_message = "Error checking tools availability"
+
+            # Overall health
+            healthy = model_healthy and tools_available
+
+            return HealthStatus(
+                healthy=healthy,
+                model_healthy=model_healthy,
+                tools_available=tools_available,
+                error_message=error_message if not healthy else None,
+            )
+
+        except Exception as e:
+            return HealthStatus(
+                healthy=False,
+                model_healthy=False,
+                tools_available=False,
+                error_message=f"Health check exception: {str(e)}",
+            )
+
+    def _create_deployment_config(
+        self,
+        deployment_mode: DeploymentMode,
+        config_override: dict = None,
+        model_id: str = None,
+        region_name: str = None,
+    ):
+        """Create deployment configuration from parameters and overrides."""
+        from .config import DeploymentConfig
+
+        # Start with defaults
+        bedrock_model_id = model_id or config.bedrock.model_id
+        aws_region = region_name or config.bedrock.region_name
+        # Check environment variable for bedrock_agent_id
+        bedrock_agent_id = os.getenv("BEDROCK_AGENT_ID")
+
+        # Apply config overrides (overrides take precedence)
+        if config_override:
+            bedrock_model_id = (
+                config_override.get("bedrock_model_id")
+                or config_override.get("model_id")
+                or bedrock_model_id
+            )
+            aws_region = (
+                config_override.get("aws_region")
+                or config_override.get("region_name")
+                or aws_region
+            )
+            bedrock_agent_id = (
+                config_override.get("bedrock_agent_id") or bedrock_agent_id
+            )
+
+        return DeploymentConfig(
+            mode=deployment_mode,
+            bedrock_model_id=bedrock_model_id,
+            bedrock_agent_id=bedrock_agent_id,
+            aws_region=aws_region,
+            enable_tracing=True,
+            timeout=30,
+        )
+
+    def _get_tools_for_mode(self, mode: DeploymentMode) -> list:
+        """Get appropriate tools based on deployment mode."""
+        if mode == DeploymentMode.BEDROCK_AGENT:
+            # BEDROCK_AGENT mode: Only base tools (no MCP tools)
+            # Location services are handled by Bedrock Agent action groups
+            return [current_time, get_weather, get_alerts]
+        else:
+            # LOCAL and MCP modes: Include MCP tools for location services
+            _initialize_mcp_client()
+            return [current_time, get_weather, get_alerts] + mcp_tools
