@@ -102,15 +102,15 @@ class TestLambdaFunctionImports:
         try:
             # Test importing key functions
             from lambda_handler import (
-                format_agentcore_response,
+                format_bedrock_agent_response,
                 initialize_lambda_environment,
                 lambda_error_handler,
-                parse_agentcore_event,
+                parse_bedrock_agent_event,
             )
 
             # Verify functions are callable
-            assert callable(parse_agentcore_event)
-            assert callable(format_agentcore_response)
+            assert callable(parse_bedrock_agent_event)
+            assert callable(format_bedrock_agent_response)
             assert callable(lambda_error_handler)
             assert callable(initialize_lambda_environment)
 

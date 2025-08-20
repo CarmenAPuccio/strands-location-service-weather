@@ -22,16 +22,18 @@ from constructs import Construct
 
 
 class WeatherLambdaConstruct(Construct):
-    """Construct for weather and alerts Lambda functions."""
+    """Construct for weather, alerts, and location Lambda functions."""
 
     def __init__(
         self,
         scope: Construct,
         construct_id: str,
-        function_name_prefix: str = "agentcore-weather",
+        function_name_prefix: str = "bedrock-agent-weather",
         weather_api_timeout: int = 10,
         otlp_endpoint: str = "",
         log_retention_days: int = 14,
+        place_index_name: str = "ExamplePlaceIndex",
+        route_calculator_name: str = "ExampleRouteCalculator",
     ) -> None:
         """
         Initialize the WeatherLambdaConstruct.
@@ -50,6 +52,8 @@ class WeatherLambdaConstruct(Construct):
         self.weather_api_timeout = weather_api_timeout
         self.otlp_endpoint = otlp_endpoint
         self.log_retention_days = log_retention_days
+        self.place_index_name = place_index_name
+        self.route_calculator_name = route_calculator_name
 
         # Create IAM execution role for Lambda functions
         self.execution_role = self._create_lambda_execution_role()
@@ -61,6 +65,8 @@ class WeatherLambdaConstruct(Construct):
         # Create Lambda functions
         self.weather_function = self._create_weather_lambda()
         self.alerts_function = self._create_alerts_lambda()
+        self.search_places_function = self._create_search_places_lambda()
+        self.calculate_route_function = self._create_calculate_route_lambda()
 
         # Create CloudWatch log groups
         self._create_log_groups()
@@ -84,6 +90,19 @@ class WeatherLambdaConstruct(Construct):
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
                 actions=["xray:PutTraceSegments", "xray:PutTelemetryRecords"],
+                resources=["*"],
+            )
+        )
+
+        # Add Amazon Location Service permissions for location functions
+        role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "geo:SearchPlaceIndexForText",
+                    "geo:CalculateRoute",
+                    "geo:GetPlace",
+                ],
                 resources=["*"],
             )
         )
@@ -127,7 +146,7 @@ class WeatherLambdaConstruct(Construct):
             memory_size=256,
             environment=self._get_weather_environment_vars(),
             tracing=lambda_.Tracing.ACTIVE,
-            description="Weather tool for AgentCore - v2.0 with fixed error handling",
+            description="Weather tool for Bedrock Agent - v2.0 with fixed error handling",
         )
 
         # Add permission for Bedrock to invoke the function
@@ -154,7 +173,7 @@ class WeatherLambdaConstruct(Construct):
             memory_size=256,
             environment=self._get_alerts_environment_vars(),
             tracing=lambda_.Tracing.ACTIVE,
-            description="Weather alerts tool for AgentCore - v2.0 with fixed error handling",
+            description="Weather alerts tool for Bedrock Agent - v2.0 with fixed error handling",
         )
 
         # Add permission for Bedrock to invoke the function
@@ -171,7 +190,7 @@ class WeatherLambdaConstruct(Construct):
         env_vars = {
             "WEATHER_API_BASE_URL": "https://api.weather.gov",
             "WEATHER_API_TIMEOUT": str(self.weather_api_timeout),
-            "USER_AGENT_WEATHER": "AgentCoreWeatherService/1.0",
+            "USER_AGENT_WEATHER": "BedrockAgentWeatherService/1.0",
             "ACCEPT_HEADER": "application/geo+json",
             "FASTMCP_LOG_LEVEL": "ERROR",
             "LAMBDA_VERSION": "2.0",
@@ -187,7 +206,7 @@ class WeatherLambdaConstruct(Construct):
         env_vars = {
             "WEATHER_API_BASE_URL": "https://api.weather.gov",
             "WEATHER_API_TIMEOUT": str(self.weather_api_timeout),
-            "USER_AGENT_ALERTS": "AgentCoreAlertsService/1.0",
+            "USER_AGENT_ALERTS": "BedrockAgentAlertsService/1.0",
             "ACCEPT_HEADER": "application/geo+json",
             "FASTMCP_LOG_LEVEL": "ERROR",
             "LAMBDA_VERSION": "2.0",
@@ -238,3 +257,97 @@ class WeatherLambdaConstruct(Construct):
             retention=logs.RetentionDays.ONE_MONTH,
             removal_policy=aws_cdk.RemovalPolicy.DESTROY,
         )
+
+        logs.LogGroup(
+            self,
+            "SearchPlacesLogGroup",
+            log_group_name=f"/aws/lambda/{self.search_places_function.function_name}",
+            retention=logs.RetentionDays.ONE_MONTH,
+            removal_policy=aws_cdk.RemovalPolicy.DESTROY,
+        )
+
+        logs.LogGroup(
+            self,
+            "CalculateRouteLogGroup",
+            log_group_name=f"/aws/lambda/{self.calculate_route_function.function_name}",
+            retention=logs.RetentionDays.ONE_MONTH,
+            removal_policy=aws_cdk.RemovalPolicy.DESTROY,
+        )
+
+    def _create_search_places_lambda(self) -> lambda_.Function:
+        """Create Lambda function for search places tool."""
+        function = lambda_.Function(
+            self,
+            "SearchPlacesFunction",
+            function_name=f"{self.function_name_prefix}-search-places",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="lambda_function.lambda_handler",
+            code=lambda_.Code.from_asset("lambda_functions/search_places"),
+            layers=[self.dependencies_layer, self.shared_code_layer],
+            role=self.execution_role,
+            timeout=Duration.seconds(30),
+            memory_size=256,
+            environment=self._get_search_places_environment_vars(),
+            tracing=lambda_.Tracing.ACTIVE,
+            description="Search places tool for Bedrock Agent - Amazon Location Service integration",
+        )
+
+        # Add permission for Bedrock to invoke the function
+        function.add_permission(
+            "BedrockInvokePermission",
+            principal=iam.ServicePrincipal("bedrock.amazonaws.com"),
+            action="lambda:InvokeFunction",
+        )
+
+        return function
+
+    def _create_calculate_route_lambda(self) -> lambda_.Function:
+        """Create Lambda function for calculate route tool."""
+        function = lambda_.Function(
+            self,
+            "CalculateRouteFunction",
+            function_name=f"{self.function_name_prefix}-calculate-route",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="lambda_function.lambda_handler",
+            code=lambda_.Code.from_asset("lambda_functions/calculate_route"),
+            layers=[self.dependencies_layer, self.shared_code_layer],
+            role=self.execution_role,
+            timeout=Duration.seconds(30),
+            memory_size=256,
+            environment=self._get_calculate_route_environment_vars(),
+            tracing=lambda_.Tracing.ACTIVE,
+            description="Calculate route tool for Bedrock Agent - Amazon Location Service integration",
+        )
+
+        # Add permission for Bedrock to invoke the function
+        function.add_permission(
+            "BedrockInvokePermission",
+            principal=iam.ServicePrincipal("bedrock.amazonaws.com"),
+            action="lambda:InvokeFunction",
+        )
+
+        return function
+
+    def _get_search_places_environment_vars(self) -> dict:
+        """Get environment variables for search places Lambda function."""
+        env_vars = {
+            "PLACE_INDEX_NAME": self.place_index_name,
+            "LAMBDA_VERSION": "1.0",
+        }
+
+        if self.otlp_endpoint:
+            env_vars["OTEL_EXPORTER_OTLP_ENDPOINT"] = self.otlp_endpoint
+
+        return env_vars
+
+    def _get_calculate_route_environment_vars(self) -> dict:
+        """Get environment variables for calculate route Lambda function."""
+        env_vars = {
+            "ROUTE_CALCULATOR_NAME": self.route_calculator_name,
+            "LAMBDA_VERSION": "1.0",
+        }
+
+        if self.otlp_endpoint:
+            env_vars["OTEL_EXPORTER_OTLP_ENDPOINT"] = self.otlp_endpoint
+
+        return env_vars

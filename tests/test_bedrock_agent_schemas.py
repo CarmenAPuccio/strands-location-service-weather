@@ -1,11 +1,11 @@
 """
-Unit tests for AgentCore OpenAPI schemas.
+Unit tests for Bedrock Agent OpenAPI schemas.
 
-This module tests the OpenAPI schema generation and validation for AgentCore
+This module tests the OpenAPI schema generation and validation for Bedrock Agent
 action groups, ensuring they meet the requirements for proper tool integration.
 """
 
-from src.strands_location_service_weather.agentcore_schemas import (
+from src.strands_location_service_weather.bedrock_agent_schemas import (
     get_alerts_action_group_schema,
     get_combined_action_group_schema,
     get_weather_action_group_schema,

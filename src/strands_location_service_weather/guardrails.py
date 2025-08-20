@@ -4,7 +4,7 @@ This module implements AWS Bedrock Guardrails best practices for location servic
 - Content filtering with appropriate strength levels
 - PII detection with location-specific exceptions
 - Prompt injection protection with pattern matching
-- Integration with both Bedrock models and AgentCore agents
+- Integration with both Bedrock models and Bedrock agents
 
 Best Practices Implemented:
 - Layered security (model + agent level guardrails)
@@ -15,7 +15,7 @@ Best Practices Implemented:
 
 References:
 - https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html
-- https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/
+- https://docs.aws.amazon.com/bedrock/latest/userguide/agents.html
 """
 
 import logging
@@ -433,10 +433,10 @@ class GuardrailIntegration:
     def apply_agent_level_guardrails(
         agent_params: dict[str, Any], config: GuardrailConfig
     ) -> dict[str, Any]:
-        """Apply guardrails at the agent level (AgentCore agents).
+        """Apply guardrails at the agent level (Bedrock agents).
 
         This follows AWS best practice of applying guardrails at the agent level
-        for AgentCore invocations, providing additional safety controls.
+        for Bedrock agent invocations, providing additional safety controls.
 
         Args:
             agent_params: Agent parameters dictionary
@@ -449,7 +449,7 @@ class GuardrailIntegration:
             agent_params["guardrail_id"] = config.guardrail_id
             agent_params["guardrail_version"] = config.guardrail_version
 
-            # AgentCore supports additional guardrail configurations
+            # Bedrock agents support additional guardrail configurations
             agent_params["guardrail_config"] = {
                 "content_filtering": config.enable_content_filtering,
                 "pii_detection": config.enable_pii_detection,

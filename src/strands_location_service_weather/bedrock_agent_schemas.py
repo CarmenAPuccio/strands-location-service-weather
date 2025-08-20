@@ -1,7 +1,7 @@
 """
-OpenAPI schemas for AgentCore action groups.
+OpenAPI schemas for Bedrock Agent action groups.
 
-This module defines the OpenAPI 3.0 schemas required for AgentCore action groups
+This module defines the OpenAPI 3.0 schemas required for Bedrock Agent action groups
 that expose the weather and alerts tools as HTTP endpoints.
 """
 

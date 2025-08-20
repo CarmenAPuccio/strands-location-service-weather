@@ -178,17 +178,17 @@ class TestMCPErrorHandlingBestPractices:
         assert error_data["session_id"] == "sess_123"
 
 
-class TestAgentCoreErrorHandlingBestPractices:
-    """Test AgentCore error handling best practices."""
+class TestBedrockAgentErrorHandlingBestPractices:
+    """Test BedrockAgent error handling best practices."""
 
-    def test_agentcore_error_response_structure(self):
-        """Test that AgentCore error responses follow Lambda response format."""
-        handler = HTTPRestErrorHandler(DeploymentMode.AGENTCORE)
+    def test_bedrock_agent_error_response_structure(self):
+        """Test that BedrockAgent error responses follow Lambda response format."""
+        handler = HTTPRestErrorHandler(DeploymentMode.BEDROCK_AGENT)
         exception = ValueError("Invalid parameter")
 
         response = handler.handle_error(exception=exception)
 
-        # Verify AgentCore Lambda response structure
+        # Verify BedrockAgent Lambda response structure
         assert response["messageVersion"] == "1.0"
         assert "response" in response
         assert "body" in response["response"]
@@ -206,9 +206,9 @@ class TestAgentCoreErrorHandlingBestPractices:
         assert body_data["success"] is False
         assert "retryable" in body_data
 
-    def test_agentcore_lambda_context_extraction(self):
-        """Test that AgentCore error handler properly extracts Lambda context."""
-        handler = HTTPRestErrorHandler(DeploymentMode.AGENTCORE)
+    def test_bedrock_agent_lambda_context_extraction(self):
+        """Test that BedrockAgent error handler properly extracts Lambda context."""
+        handler = HTTPRestErrorHandler(DeploymentMode.BEDROCK_AGENT)
         exception = ValueError("Test error")
 
         # Mock Lambda context
@@ -217,8 +217,8 @@ class TestAgentCoreErrorHandlingBestPractices:
         mock_lambda_context.function_name = "test_function"
         mock_lambda_context.function_version = "1.0"
 
-        # Mock AgentCore event
-        agentcore_event = {
+        # Mock BedrockAgent event
+        bedrock_agent_event = {
             "sessionId": "sess_456",
             "agent": {"agentId": "agent_789"},
         }
@@ -226,7 +226,7 @@ class TestAgentCoreErrorHandlingBestPractices:
         response = handler.handle_error(
             exception=exception,
             lambda_context=mock_lambda_context,
-            agentcore_event=agentcore_event,
+            bedrock_agent_event=bedrock_agent_event,
         )
 
         # Verify Lambda context was extracted
@@ -331,9 +331,9 @@ class TestErrorHandlingCompliance:
         # Standard error codes are negative
         assert error_code < 0
 
-    def test_agentcore_lambda_response_compliance(self):
-        """Test compliance with AWS Lambda response format for AgentCore."""
-        handler = HTTPRestErrorHandler(DeploymentMode.AGENTCORE)
+    def test_bedrock_agent_lambda_response_compliance(self):
+        """Test compliance with AWS Lambda response format for BedrockAgent."""
+        handler = HTTPRestErrorHandler(DeploymentMode.BEDROCK_AGENT)
         exception = ValueError("Test error")
 
         response = handler.handle_error(exception=exception)

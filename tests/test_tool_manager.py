@@ -159,15 +159,15 @@ class TestToolProtocolAdapters:
         assert "parameters_schema must be a dictionary" in result.error_message
 
     def test_http_rest_adapter_validation(self):
-        """Test HTTPRestAdapter validates tools for AgentCore deployment."""
+        """Test HTTPRestAdapter validates tools for BedrockAgent deployment."""
         adapter = HTTPRestAdapter()
 
         mock_function = Mock()
-        mock_function.__name__ = "agentcore_tool"
+        mock_function.__name__ = "bedrock_agent_tool"
 
         tool_def = ToolDefinition(
-            name="agentcore_tool",
-            description="AgentCore tool",
+            name="bedrock_agent_tool",
+            description="BedrockAgent tool",
             function=mock_function,
             protocol=ToolProtocol.HTTP_REST,
             parameters_schema={
@@ -285,15 +285,15 @@ class TestToolManager:
         assert isinstance(tools, list)
         assert all(tool is not None for tool in tools)
 
-    def test_get_tools_for_agentcore_mode(self):
-        """Test getting tools for AGENTCORE deployment mode."""
+    def test_get_tools_for_bedrock_agent_mode(self):
+        """Test getting tools for BEDROCK_AGENT deployment mode."""
         manager = ToolManager()
 
-        # Test the actual implementation - it should return tools for AGENTCORE mode
-        tools = manager.get_tools_for_mode(DeploymentMode.AGENTCORE)
+        # Test the actual implementation - it should return tools for BEDROCK_AGENT mode
+        tools = manager.get_tools_for_mode(DeploymentMode.BEDROCK_AGENT)
 
-        # Should include only base tools for AGENTCORE mode
-        # (location services handled by AgentCore action groups)
+        # Should include only base tools for BEDROCK_AGENT mode
+        # (location services handled by BedrockAgent action groups)
         assert (
             len(tools) == 3
         )  # Only base tools (current_time, get_weather, get_alerts)
@@ -331,7 +331,7 @@ class TestToolManager:
         )
         assert manager._get_protocol_for_mode(DeploymentMode.MCP) == ToolProtocol.MCP
         assert (
-            manager._get_protocol_for_mode(DeploymentMode.AGENTCORE)
+            manager._get_protocol_for_mode(DeploymentMode.BEDROCK_AGENT)
             == ToolProtocol.HTTP_REST
         )
 
@@ -452,12 +452,12 @@ class TestToolIntegrationRequirements:
         assert info["protocol"] == ToolProtocol.MCP.value
         assert "Model Context Protocol" in info["description"]
 
-    def test_requirement_8_3_agentcore_mode_http_rest(self):
-        """Test requirement 8.3: AGENTCORE mode uses HTTP/REST via Lambda."""
+    def test_requirement_8_3_bedrock_agent_mode_http_rest(self):
+        """Test requirement 8.3: BEDROCK_AGENT mode uses HTTP/REST via Lambda."""
         manager = ToolManager()
 
-        # Verify AGENTCORE mode maps to HTTP_REST protocol
-        protocol = manager._get_protocol_for_mode(DeploymentMode.AGENTCORE)
+        # Verify BEDROCK_AGENT mode maps to HTTP_REST protocol
+        protocol = manager._get_protocol_for_mode(DeploymentMode.BEDROCK_AGENT)
         assert protocol == ToolProtocol.HTTP_REST
 
         # Verify the adapter exists and is correct type

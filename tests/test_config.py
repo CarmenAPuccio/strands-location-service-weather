@@ -10,8 +10,8 @@ from unittest.mock import patch
 import pytest
 
 from src.strands_location_service_weather.config import (
-    AgentCoreConfig,
     AppConfig,
+    BedrockAgentConfig,
     BedrockConfig,
     DeploymentConfig,
     DeploymentMode,
@@ -30,13 +30,13 @@ class TestDeploymentMode:
         """Test that DeploymentMode has correct values."""
         assert DeploymentMode.LOCAL.value == "local"
         assert DeploymentMode.MCP.value == "mcp"
-        assert DeploymentMode.AGENTCORE.value == "agentcore"
+        assert DeploymentMode.BEDROCK_AGENT.value == "bedrock_agent"
 
     def test_deployment_mode_from_string(self):
         """Test creating DeploymentMode from string values."""
         assert DeploymentMode("local") == DeploymentMode.LOCAL
         assert DeploymentMode("mcp") == DeploymentMode.MCP
-        assert DeploymentMode("agentcore") == DeploymentMode.AGENTCORE
+        assert DeploymentMode("bedrock_agent") == DeploymentMode.BEDROCK_AGENT
 
     def test_invalid_deployment_mode(self):
         """Test that invalid deployment mode raises ValueError."""
@@ -52,40 +52,40 @@ class TestDeploymentConfig:
         config = DeploymentConfig()
         assert config.mode == DeploymentMode.LOCAL
         assert config.bedrock_model_id == "anthropic.claude-3-sonnet-20240229-v1:0"
-        assert config.agentcore_agent_id is None
+        assert config.bedrock_agent_id is None
         assert config.aws_region == "us-east-1"
         assert config.enable_tracing is True
         assert config.timeout == 30
 
-    def test_agentcore_mode_requires_agent_id(self):
-        """Test that AGENTCORE mode requires agent_id."""
-        with pytest.raises(ValueError, match="agentcore_agent_id is required"):
-            DeploymentConfig(mode=DeploymentMode.AGENTCORE)
+    def test_bedrock_agent_mode_requires_agent_id(self):
+        """Test that BEDROCK_AGENT mode requires agent_id."""
+        with pytest.raises(ValueError, match="bedrock_agent_id is required"):
+            DeploymentConfig(mode=DeploymentMode.BEDROCK_AGENT)
 
-    def test_agentcore_mode_with_agent_id(self):
-        """Test that AGENTCORE mode works with agent_id."""
+    def test_bedrock_agent_mode_with_agent_id(self):
+        """Test that BEDROCK_AGENT mode works with agent_id."""
         config = DeploymentConfig(
-            mode=DeploymentMode.AGENTCORE, agentcore_agent_id="test-agent-id"
+            mode=DeploymentMode.BEDROCK_AGENT, bedrock_agent_id="test-agent-id"
         )
-        assert config.mode == DeploymentMode.AGENTCORE
-        assert config.agentcore_agent_id == "test-agent-id"
+        assert config.mode == DeploymentMode.BEDROCK_AGENT
+        assert config.bedrock_agent_id == "test-agent-id"
 
     def test_local_and_mcp_modes_without_agent_id(self):
         """Test that LOCAL and MCP modes work without agent_id."""
         local_config = DeploymentConfig(mode=DeploymentMode.LOCAL)
         assert local_config.mode == DeploymentMode.LOCAL
-        assert local_config.agentcore_agent_id is None
+        assert local_config.bedrock_agent_id is None
 
         mcp_config = DeploymentConfig(mode=DeploymentMode.MCP)
         assert mcp_config.mode == DeploymentMode.MCP
-        assert mcp_config.agentcore_agent_id is None
+        assert mcp_config.bedrock_agent_id is None
 
     @patch.dict(
         os.environ,
         {
-            "DEPLOYMENT_MODE": "agentcore",
+            "DEPLOYMENT_MODE": "bedrock_agent",
             "BEDROCK_MODEL_ID": "custom-model",
-            "AGENTCORE_AGENT_ID": "test-agent",
+            "BEDROCK_AGENT_ID": "test-agent",
             "AWS_REGION": "us-west-2",
             "ENABLE_TRACING": "false",
             "DEPLOYMENT_TIMEOUT": "60",
@@ -96,9 +96,9 @@ class TestDeploymentConfig:
         config_data = {}
         config = DeploymentConfig.from_env_and_config(config_data)
 
-        assert config.mode == DeploymentMode.AGENTCORE
+        assert config.mode == DeploymentMode.BEDROCK_AGENT
         assert config.bedrock_model_id == "custom-model"
-        assert config.agentcore_agent_id == "test-agent"
+        assert config.bedrock_agent_id == "test-agent"
         assert config.aws_region == "us-west-2"
         assert config.enable_tracing is False
         assert config.timeout == 60
@@ -142,20 +142,20 @@ class TestDeploymentConfig:
         assert config.bedrock_model_id == "env-model"
 
 
-class TestAgentCoreConfig:
-    """Test AgentCoreConfig dataclass."""
+class TestBedrockAgentConfig:
+    """Test BedrockAgentConfig dataclass."""
 
     def test_default_values(self):
-        """Test AgentCoreConfig default values."""
-        config = AgentCoreConfig()
+        """Test BedrockAgentConfig default values."""
+        config = BedrockAgentConfig()
         assert config.agent_id is None
         assert config.agent_alias_id == "TSTALIASID"
         assert config.session_id is None
         assert config.enable_trace is True
 
     def test_custom_values(self):
-        """Test AgentCoreConfig with custom values."""
-        config = AgentCoreConfig(
+        """Test BedrockAgentConfig with custom values."""
+        config = BedrockAgentConfig(
             agent_id="custom-agent",
             agent_alias_id="CUSTOM",
             session_id="session-123",
@@ -203,19 +203,19 @@ class TestAppConfigIntegration:
         config = AppConfig.load()
         assert hasattr(config, "deployment")
         assert isinstance(config.deployment, DeploymentConfig)
-        assert hasattr(config, "agentcore")
-        assert isinstance(config.agentcore, AgentCoreConfig)
+        assert hasattr(config, "bedrock_agent")
+        assert isinstance(config.bedrock_agent, BedrockAgentConfig)
         assert hasattr(config, "guardrail")
         assert isinstance(config.guardrail, GuardrailConfig)
 
     @patch.dict(
         os.environ,
         {
-            "DEPLOYMENT_MODE": "agentcore",
-            "AGENTCORE_AGENT_ID": "test-agent",
-            "AGENTCORE_AGENT_ALIAS_ID": "PROD",
-            "AGENTCORE_SESSION_ID": "session-456",
-            "AGENTCORE_ENABLE_TRACE": "false",
+            "DEPLOYMENT_MODE": "bedrock_agent",
+            "BEDROCK_AGENT_ID": "test-agent",
+            "BEDROCK_AGENT_ALIAS_ID": "PROD",
+            "BEDROCK_AGENT_SESSION_ID": "session-456",
+            "BEDROCK_AGENT_ENABLE_TRACE": "false",
             "GUARDRAIL_ID": "guard-456",
             "GUARDRAIL_VERSION": "2.0",
             "GUARDRAIL_CONTENT_FILTERING": "false",
@@ -226,14 +226,14 @@ class TestAppConfigIntegration:
         config = AppConfig.load()
 
         # Test deployment config
-        assert config.deployment.mode == DeploymentMode.AGENTCORE
-        assert config.deployment.agentcore_agent_id == "test-agent"
+        assert config.deployment.mode == DeploymentMode.BEDROCK_AGENT
+        assert config.deployment.bedrock_agent_id == "test-agent"
 
-        # Test agentcore config
-        assert config.agentcore.agent_id == "test-agent"
-        assert config.agentcore.agent_alias_id == "PROD"
-        assert config.agentcore.session_id == "session-456"
-        assert config.agentcore.enable_trace is False
+        # Test bedrock_agent config
+        assert config.bedrock_agent.agent_id == "test-agent"
+        assert config.bedrock_agent.agent_alias_id == "PROD"
+        assert config.bedrock_agent.session_id == "session-456"
+        assert config.bedrock_agent.enable_trace is False
 
         # Test guardrail config
         assert config.guardrail.guardrail_id == "guard-456"
@@ -249,7 +249,7 @@ bedrock_model_id = "custom-claude"
 aws_region = "ap-southeast-1"
 timeout = 120
 
-[agentcore]
+[bedrock_agent]
 agent_alias_id = "STAGING"
 enable_trace = false
 
@@ -271,9 +271,9 @@ enable_pii_detection = false
                 assert config.deployment.aws_region == "ap-southeast-1"
                 assert config.deployment.timeout == 120
 
-                # Test agentcore config from TOML
-                assert config.agentcore.agent_alias_id == "STAGING"
-                assert config.agentcore.enable_trace is False
+                # Test bedrock_agent config from TOML
+                assert config.bedrock_agent.agent_alias_id == "STAGING"
+                assert config.bedrock_agent.enable_trace is False
 
                 # Test guardrail config from TOML
                 assert config.guardrail.guardrail_version == "3.0"
@@ -316,14 +316,14 @@ class TestConfigurationValidation:
         # Should not raise any exceptions
         assert config.mode == DeploymentMode.MCP
 
-    def test_valid_agentcore_mode_configuration(self):
-        """Test that AGENTCORE mode configuration is valid with agent_id."""
+    def test_valid_bedrock_agent_mode_configuration(self):
+        """Test that BEDROCK_AGENT mode configuration is valid with agent_id."""
         config = DeploymentConfig(
-            mode=DeploymentMode.AGENTCORE, agentcore_agent_id="valid-agent-id"
+            mode=DeploymentMode.BEDROCK_AGENT, bedrock_agent_id="valid-agent-id"
         )
         # Should not raise any exceptions
-        assert config.mode == DeploymentMode.AGENTCORE
-        assert config.agentcore_agent_id == "valid-agent-id"
+        assert config.mode == DeploymentMode.BEDROCK_AGENT
+        assert config.bedrock_agent_id == "valid-agent-id"
 
     def test_configuration_type_conversion(self):
         """Test that configuration handles type conversion correctly."""

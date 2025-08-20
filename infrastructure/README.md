@@ -1,6 +1,6 @@
-# AgentCore Weather Tools Infrastructure
+# Bedrock Agent Weather Tools Infrastructure
 
-This directory contains AWS CDK infrastructure code for deploying weather and alerts tools as Lambda functions for use with Amazon Bedrock AgentCore.
+This directory contains AWS CDK infrastructure code for deploying weather and alerts tools as Lambda functions for use with Amazon Bedrock Agents.
 
 ## Project Structure
 
@@ -14,7 +14,7 @@ infrastructure/
 ├── README.md                   # This file
 ├── stacks/
 │   ├── __init__.py
-│   └── agentcore_stack.py      # Main CDK stack definition
+│   └── bedrock_agent_stack.py  # Main CDK stack definition
 ├── cdk_lib/
 │   ├── __init__.py
 │   ├── lambda_construct.py     # Lambda functions construct (with layers)
@@ -56,7 +56,7 @@ infrastructure/
 The deployment can be configured using environment variables:
 
 ```bash
-export FUNCTION_PREFIX="agentcore-weather"
+export FUNCTION_PREFIX="bedrock-agent-weather"
 export WEATHER_API_TIMEOUT="10"
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://your-endpoint"
 export LOG_RETENTION_DAYS="14"
@@ -93,12 +93,12 @@ Available options:
 2. **IAM Roles**:
 
    - Lambda execution role with CloudWatch and X-Ray permissions
-   - AgentCore agent role with Lambda invoke permissions
+   - Bedrock Agent role with Lambda invoke permissions
 
 3. **Bedrock Resources**:
 
    - Guardrail for content filtering and security
-   - AgentCore agent with action groups
+   - Bedrock Agent with action groups
 
 4. **Monitoring**:
    - CloudWatch log groups with configurable retention
@@ -142,18 +142,18 @@ cd infrastructure && cdk deploy
 This creates:
 - **Lambda Functions**: `get_weather` and `get_alerts` with layers
 - **IAM Roles**: Execution roles with minimal required permissions
-- **Bedrock Agent**: AgentCore agent with action groups
+- **Bedrock Agent**: Bedrock Agent with action groups
 - **Guardrails**: Content filtering and security policies
 - **Monitoring**: CloudWatch logs and X-Ray tracing
 
-#### 3. AgentCore Integration
+#### 3. Bedrock Agent Integration
 
-The deployed Lambda functions are automatically configured as AgentCore action groups:
+The deployed Lambda functions are automatically configured as Bedrock Agent action groups:
 
 - **Weather Action Group**: `/get_weather` endpoint
 - **Alerts Action Group**: `/get_alerts` endpoint
 - **OpenAPI Schemas**: Auto-generated from function signatures
-- **Error Handling**: Standardized AgentCore response format
+- **Error Handling**: Standardized Bedrock Agent response format
 
 #### Environment Variables
 
@@ -170,13 +170,13 @@ AWS_REGION=us-east-1                     # AWS region
 ```bash
 # Test weather function
 aws lambda invoke \
-  --function-name agentcore-weather-get-weather \
+  --function-name bedrock-agent-weather-get-weather \
   --payload '{"parameters":[{"name":"latitude","value":"47.6062","type":"number"},{"name":"longitude","value":"-122.3321","type":"number"}]}' \
   response.json
 
 # Test alerts function  
 aws lambda invoke \
-  --function-name agentcore-weather-get-alerts \
+  --function-name bedrock-agent-weather-get-alerts \
   --payload '{"parameters":[{"name":"latitude","value":"47.6062","type":"number"},{"name":"longitude","value":"-122.3321","type":"number"}]}' \
   response.json
 ```
@@ -219,7 +219,7 @@ cdk deploy --verbose
 View CloudWatch logs:
 
 ```bash
-aws logs tail /aws/lambda/agentcore-weather-get-weather --follow
+aws logs tail /aws/lambda/bedrock-agent-weather-get-weather --follow
 ```
 
 ## Cost Optimization

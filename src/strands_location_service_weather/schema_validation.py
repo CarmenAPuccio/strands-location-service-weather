@@ -2,7 +2,7 @@
 Schema validation utilities for OpenAPI schemas and tool definitions.
 
 This module provides comprehensive validation for OpenAPI 3.0 schemas used in
-AgentCore action groups, ensuring compliance with AWS Bedrock AgentCore requirements.
+Bedrock Agent action groups, ensuring compliance with AWS Bedrock Agent requirements.
 """
 
 import logging
@@ -83,8 +83,8 @@ class OpenAPIValidator:
             if "components" in schema:
                 self._validate_components_object(schema["components"])
 
-            # AgentCore-specific validations
-            self._validate_agentcore_compatibility(schema)
+            # Bedrock Agent-specific validations
+            self._validate_bedrock_agent_compatibility(schema)
 
         except Exception as e:
             self.errors.append(f"Validation failed with exception: {str(e)}")
@@ -237,9 +237,11 @@ class OpenAPIValidator:
         if "parameters" in operation:
             self._validate_parameters_array(operation["parameters"], context)
 
-        # AgentCore recommendations
+        # Bedrock Agent recommendations
         if "operationId" not in operation:
-            self.warnings.append(f"operationId recommended for AgentCore: {context}")
+            self.warnings.append(
+                f"operationId recommended for Bedrock Agent: {context}"
+            )
 
         if self.config.require_descriptions and "description" not in operation:
             self.warnings.append(f"description recommended: {context}")
@@ -316,7 +318,7 @@ class OpenAPIValidator:
 
         if not has_json and self.config.strict_mode:
             self.warnings.append(
-                f"application/json content type recommended for AgentCore: {context}"
+                f"application/json content type recommended for Bedrock Agent: {context}"
             )
 
         # Validate media type objects
@@ -428,11 +430,11 @@ class OpenAPIValidator:
                         schema, f"components.schemas.{schema_name}"
                     )
 
-    def _validate_agentcore_compatibility(self, schema: dict[str, Any]) -> None:
-        """Validate AgentCore-specific requirements."""
-        logger.debug("Validating AgentCore compatibility")
+    def _validate_bedrock_agent_compatibility(self, schema: dict[str, Any]) -> None:
+        """Validate Bedrock Agent-specific requirements."""
+        logger.debug("Validating Bedrock Agent compatibility")
 
-        # Check for POST operations (AgentCore preference)
+        # Check for POST operations (Bedrock Agent preference)
         if "paths" in schema:
             post_operations = 0
             total_operations = 0
@@ -447,7 +449,7 @@ class OpenAPIValidator:
 
             if total_operations > 0 and post_operations == 0:
                 self.warnings.append(
-                    "AgentCore works best with POST operations for action groups"
+                    "Bedrock Agent works best with POST operations for action groups"
                 )
 
         # Check for operationId in all operations
@@ -465,7 +467,7 @@ class OpenAPIValidator:
 
         if missing_operation_ids:
             self.warnings.append(
-                f"Missing operationId for AgentCore operations: {', '.join(missing_operation_ids)}"
+                f"Missing operationId for Bedrock Agent operations: {', '.join(missing_operation_ids)}"
             )
 
         # Check for JSON content types
@@ -495,7 +497,7 @@ class OpenAPIValidator:
 
         if non_json_operations:
             self.warnings.append(
-                f"AgentCore prefers application/json content: {', '.join(non_json_operations)}"
+                f"Bedrock Agent prefers application/json content: {', '.join(non_json_operations)}"
             )
 
 
@@ -546,7 +548,7 @@ class ToolSchemaValidator:
         # Tool-specific validations
         if parameters_schema.get("type") != "object":
             warnings.append(
-                f"Tool {tool_name}: parameters should be object type for AgentCore compatibility"
+                f"Tool {tool_name}: parameters should be object type for Bedrock Agent compatibility"
             )
 
         if (

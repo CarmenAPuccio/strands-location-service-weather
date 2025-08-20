@@ -1,32 +1,248 @@
+# Bedrock Agent Renaming and Implementation Plan
+
+## 🚨 CRITICAL UPDATE: Terminology Correction Required
+
+**Issue**: The project uses "AgentCore" terminology throughout but actually implements standard Amazon Bedrock Agents, not the separate Amazon Bedrock AgentCore service. This creates significant confusion.
+
+**Solution**: Rename all "AgentCore" references to "BedrockAgent" to accurately reflect the AWS service being used.
+
+## Deployment Modes Clarification
+
+### Current (Confusing)
+
+- **LOCAL**: Direct Python execution + MCP location tools
+- **MCP**: FastMCP server + MCP location tools
+- **AGENTCORE**: Lambda functions + "AgentCore" (actually standard Bedrock Agents)
+
+### Target (Accurate)
+
+- **LOCAL**: Direct Python execution + MCP location tools (no change)
+- **MCP**: FastMCP server + MCP location tools (no change)
+- **BEDROCK_AGENT**: Lambda functions + standard Amazon Bedrock Agents
+
+---
+
 # Implementation Plan
 
-## Phase 1: Foundation and Configuration Management
+## Phase 0: Terminology Correction ✅ **COMPLETED**
+
+- [x] 1. **COMPLETED**: Rename deployment mode configuration
+
+  - ✅ Change `DeploymentMode.AGENTCORE` → `DeploymentMode.BEDROCK_AGENT`
+  - ✅ Update `config.toml` mode option: "agentcore" → "bedrock_agent"
+  - ✅ Rename environment variables: `AGENTCORE_*` → `BEDROCK_AGENT_*`
+  - ✅ Update config section: `[agentcore]` → `[bedrock_agent]`
+  - ✅ Update all documentation references
+
+- [x] 2. **COMPLETED**: Simplify model factory architecture
+
+  - ✅ Remove `AgentCoreModel` references (doesn't exist for standard Bedrock Agents)
+  - ✅ Use `BedrockModel` for all deployment modes (LOCAL, MCP, BEDROCK_AGENT)
+  - ✅ Simplify model creation logic - no need for separate model types
+  - ✅ Update all method names: `_create_agentcore_model()` → `_create_bedrock_agent_model()`
+
+- [x] 3. **COMPLETED**: Rename infrastructure components
+
+  - ✅ `infrastructure/stacks/agentcore_stack.py` → `bedrock_agent_stack.py`
+  - ✅ `LocationWeatherAgentCoreStack` → `LocationWeatherBedrockAgentStack`
+  - ✅ Function prefixes: `agentcore-weather` → `bedrock-agent-weather`
+  - ✅ IAM role names: `agentcore-weather-agent-role` → `bedrock-agent-role`
+  - ✅ All CDK construct names and descriptions
+
+- [x] 4. **COMPLETED**: Update schema and validation references
+
+  - ✅ `agentcore_schemas` → `bedrock_agent_schemas`
+  - ✅ Schema validation methods: `_validate_agentcore_compatibility()` → `_validate_bedrock_agent_compatibility()`
+  - ✅ All comments about "AgentCore compatibility" → "Bedrock Agent compatibility"
+  - ✅ Error messages and log statements
+
+- [x] 5. **COMPLETED**: Fix missing location services in BEDROCK_AGENT mode
+
+  - **Root Cause**: BEDROCK_AGENT mode only has weather tools, missing location services
+  - **Solution**: Create Lambda functions for location services (for portability to future AgentCore)
+  - **Approach Change**: Lambda functions instead of direct API integration
+  - **Portability Reasoning**:
+    - Lambda functions will be 90%+ portable when migrating to Amazon Bedrock AgentCore
+    - Direct API integration would require complete rewrite for AgentCore
+    - Consistent architecture with existing weather tools
+  - **Implementation**:
+    - ✅ Update `bedrock_construct.py` to add location services action group
+    - ✅ Add IAM permissions for Location Service APIs
+    - ✅ Use existing `location_action_group.json` OpenAPI schema
+    - ✅ **COMPLETED**: Create Lambda functions for location services:
+      - ✅ `infrastructure/lambda_functions/search_places/` - Place search functionality
+      - ✅ `infrastructure/lambda_functions/calculate_route/` - Route calculation functionality
+    - ✅ **COMPLETED**: Update action group configuration to use Lambda executors
+    - ✅ **COMPLETED**: Test with original routing query: "directions from Corsham Dr in Medford NJ to closest pizza place"
+  - **Benefits**: Future-proof for AgentCore migration, consistent architecture, code portability
+  - ✅ This fixed the original routing query issue
+
+### Renaming Scope Analysis
+
+**Files That Need Changes**: ~25-30 files
+
+**Categories of Changes**:
+
+1. **Configuration & Environment Variables** (Medium Impact)
+
+   - `config.toml` - Change mode from "agentcore" to "bedrock_agent"
+   - Environment variables: `AGENTCORE_AGENT_ID` → `BEDROCK_AGENT_ID`
+   - Config section `[agentcore]` → `[bedrock_agent]`
+
+2. **Infrastructure Code** (High Impact)
+
+   - `infrastructure/stacks/agentcore_stack.py` → `bedrock_agent_stack.py`
+   - `LocationWeatherAgentCoreStack` → `LocationWeatherBedrockAgentStack`
+   - Function prefixes: `agentcore-weather` → `bedrock-agent-weather`
+   - IAM role names: `agentcore-weather-agent-role` → `bedrock-agent-role`
+
+3. **Source Code** (High Impact)
+
+   - `DeploymentMode.AGENTCORE` → `DeploymentMode.BEDROCK_AGENT`
+   - `AgentCoreModel` → Remove (use `BedrockModel` for all modes)
+   - Method names: `_create_agentcore_model()` → `_create_bedrock_agent_model()`
+   - Schema imports: `agentcore_schemas` → `bedrock_agent_schemas`
+
+4. **Documentation** (Low Impact)
+
+   - All README files and comments
+   - Error messages and log statements
+   - User-facing documentation
+
+5. **Tests** (Medium Impact)
+   - All test files with AGENTCORE references
+   - Mock configurations and assertions
+
+**Estimated Effort**: 2-3 hours
+
+**Why It's Manageable**:
+
+- Mostly find-and-replace - Most changes are straightforward text substitutions
+- Well-contained - The AgentCore references are mostly in specific modules
+- Good test coverage - Tests will catch any missed references
+
+**Biggest Challenge**:
+The `AgentCoreModel` from Strands doesn't have a direct equivalent for standard Bedrock Agents. Solution:
+
+- Use `BedrockModel` for all modes
+- Remove the model factory complexity
+- Simplify the deployment modes to just `LOCAL`, `MCP`, and `BEDROCK_AGENT`
+
+### Task 5 Implementation Details: Lambda Functions for Location Services
+
+**Approach**: Create Lambda functions for location services (consistent with weather tools pattern).
+
+**Portability Strategy for Future AgentCore Migration**:
+
+- Lambda functions will be 90%+ portable to Amazon Bedrock AgentCore
+- Same Amazon Location Service API calls work in both architectures
+- Consistent error handling and observability patterns
+- Code reuse when AgentCore gets CDK support
+
+**Implementation Steps**:
+
+1. **Create Location Service Lambda Functions**:
+
+   ```
+   infrastructure/lambda_functions/search_places/
+   ├── lambda_function.py          # Place search implementation
+   └── requirements.txt            # Dependencies
+
+   infrastructure/lambda_functions/calculate_route/
+   ├── lambda_function.py          # Route calculation implementation
+   └── requirements.txt            # Dependencies
+   ```
+
+2. **Lambda Function Pattern** (following weather tools):
+
+   ```python
+   # Same pattern as weather Lambda functions
+   def lambda_handler(event, context):
+       # Parse Bedrock Agent event
+       # Call Amazon Location Service APIs
+       # Return formatted response with proper error handling
+   ```
+
+3. **Update Bedrock Agent Configuration** (`infrastructure/cdk_lib/bedrock_construct.py`):
+
+   ```python
+   # Update action groups to use Lambda executors
+   {
+       "actionGroupName": "search-places",
+       "description": "Search for places using Amazon Location Service",
+       "actionGroupExecutor": {
+           "lambda": self.search_places_function.function_arn
+       },
+       "apiSchema": {"payload": self._get_search_places_schema()},
+   },
+   {
+       "actionGroupName": "calculate-route",
+       "description": "Calculate routes using Amazon Location Service",
+       "actionGroupExecutor": {
+           "lambda": self.calculate_route_function.function_arn
+       },
+       "apiSchema": {"payload": self._get_calculate_route_schema()},
+   }
+   ```
+
+4. **Add Lambda Functions to CDK Stack**:
+
+   - Update `WeatherLambdaConstruct` to include location functions
+   - Add IAM permissions for Location Service APIs
+   - Configure proper environment variables and timeouts
+
+5. **Schema Integration**:
+
+   - ✅ Use existing `infrastructure/schemas/location_action_group.json`
+   - Split into separate schemas for better organization if needed
+   - Ensure OpenAPI schemas match Lambda function signatures
+
+6. **Testing Strategy**:
+   - Deploy Lambda functions and updated Bedrock Agent
+   - Test original failing query: _"Can I have the directions from Corsham Dr in Medford NJ to the closest pizza place in Medford, NJ?"_
+   - Verify agent can now handle both weather AND location queries
+   - Test error handling and observability
+
+**Architecture After Fix**:
+
+- **LOCAL/MCP**: `BedrockModel` + MCP Location Tools + Weather Tools
+- **BEDROCK_AGENT**: `BedrockModel` + Location Lambda Functions + Weather Lambda Functions
+
+**Benefits of Lambda Approach**:
+
+- ✅ Future-proof for AgentCore migration (90%+ code portability)
+- ✅ Consistent architecture with weather tools
+- ✅ Same error handling and observability patterns
+- ✅ Code reuse and maintainability
+- ✅ Team knowledge transfer
+
+## Phase 1: Foundation and Configuration Management ✅ COMPLETED (needs renaming)
 
 - [x] 1. Create deployment mode configuration system
 
-  - Implement `DeploymentMode` enum with LOCAL, MCP, and AGENTCORE options
-  - Create `DeploymentConfig` dataclass with mode-specific parameters
-  - Add configuration validation and environment variable processing
-  - Write unit tests for configuration loading and validation
+  - ✅ Implement `DeploymentMode` enum with LOCAL, MCP, and AGENTCORE options (needs renaming)
+  - ✅ Create `DeploymentConfig` dataclass with mode-specific parameters
+  - ✅ Add configuration validation and environment variable processing
+  - ✅ Write unit tests for configuration loading and validation
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
 - [x] 2. Implement model factory with Strands integration
 
-  - Create `ModelFactory` class that returns `BedrockModel` or `AgentCoreModel` based on configuration
-  - Add model configuration validation and connection health checks
-  - Implement error handling for model creation failures
-  - Write unit tests for model factory functionality
+  - ✅ Create `ModelFactory` class (needs simplification - remove AgentCoreModel)
+  - ✅ Add model configuration validation and connection health checks
+  - ✅ Implement error handling for model creation failures
+  - ✅ Write unit tests for model factory functionality
   - _Requirements: 1.1, 1.2, 1.3, 2.2_
 
 - [x] 3. Enhance LocationWeatherClient for multi-mode support
 
-  - Modify `LocationWeatherClient.__init__()` to accept deployment mode parameter
-  - Integrate model factory for dynamic model selection
-  - Maintain backward compatibility with existing constructor interface
-  - Add deployment info and health check methods
-  - Write integration tests comparing responses across modes
-  - Update README.md with new deployment mode configuration options
-  - Update .kiro/steering/tech.md with new configuration variables and usage patterns
+  - ✅ Modify `LocationWeatherClient.__init__()` to accept deployment mode parameter
+  - ✅ Integrate model factory for dynamic model selection
+  - ✅ Maintain backward compatibility with existing constructor interface
+  - ✅ Add deployment info and health check methods
+  - ✅ Write integration tests comparing responses across modes
+  - ✅ Update README.md with new deployment mode configuration options (needs terminology update)
+  - ✅ Update .kiro/steering/tech.md with new configuration variables and usage patterns (needs terminology update)
   - _Requirements: 1.4, 1.5, 5.1, 5.2, 5.3, 5.4, 5.5_
 
 - [x] 4. Set up Bedrock Guardrails configuration

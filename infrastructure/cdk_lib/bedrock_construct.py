@@ -1,8 +1,8 @@
 """
-Bedrock construct for AgentCore agent and guardrails.
+Bedrock construct for Bedrock Agent and guardrails.
 
-This module provides a reusable CDK construct for creating Bedrock AgentCore
-agents with guardrails following AWS CDK best practices.
+This module provides a reusable CDK construct for creating Bedrock Agents
+with guardrails following AWS CDK best practices.
 """
 
 import json
@@ -24,7 +24,7 @@ from constructs import Construct
 
 
 class BedrockAgentConstruct(Construct):
-    """Construct for Bedrock AgentCore agent with guardrails."""
+    """Construct for Bedrock Agent with guardrails."""
 
     def __init__(
         self,
@@ -32,6 +32,8 @@ class BedrockAgentConstruct(Construct):
         construct_id: str,
         weather_function: lambda_.Function,
         alerts_function: lambda_.Function,
+        search_places_function: lambda_.Function,
+        calculate_route_function: lambda_.Function,
     ) -> None:
         """
         Initialize the BedrockAgentConstruct.
@@ -41,11 +43,15 @@ class BedrockAgentConstruct(Construct):
             construct_id: Construct ID
             weather_function: Lambda function for weather tool
             alerts_function: Lambda function for alerts tool
+            search_places_function: Lambda function for search places tool
+            calculate_route_function: Lambda function for calculate route tool
         """
         super().__init__(scope, construct_id)
 
         self.weather_function = weather_function
         self.alerts_function = alerts_function
+        self.search_places_function = search_places_function
+        self.calculate_route_function = calculate_route_function
 
         # Get AWS account and region for ARN construction
         self.account = Stack.of(self).account
@@ -54,8 +60,8 @@ class BedrockAgentConstruct(Construct):
         # Create Bedrock Guardrail for security
         self.guardrail = self._create_bedrock_guardrail()
 
-        # Create AgentCore agent with action groups
-        self.agent = self._create_agentcore_agent()
+        # Create Bedrock Agent with action groups
+        self.agent = self._create_bedrock_agent()
 
     def _create_bedrock_guardrail(self) -> bedrock.CfnGuardrail:
         """Create Bedrock Guardrail for content filtering and security."""
@@ -134,13 +140,13 @@ class BedrockAgentConstruct(Construct):
 
         return guardrail
 
-    def _create_agentcore_agent(self) -> bedrock.CfnAgent:
-        """Create Bedrock AgentCore agent with action groups."""
+    def _create_bedrock_agent(self) -> bedrock.CfnAgent:
+        """Create Bedrock Agent with action groups."""
         # Create execution role for the agent
         agent_role = iam.Role(
             self,
-            "AgentCoreExecutionRole",
-            role_name="agentcore-weather-agent-role",
+            "BedrockAgentExecutionRole",
+            role_name="bedrock-agent-weather-role",
             assumed_by=iam.ServicePrincipal("bedrock.amazonaws.com"),
         )
 
@@ -184,10 +190,25 @@ class BedrockAgentConstruct(Construct):
             )
         )
 
+        # Add permissions for the agent to call Amazon Location Service
+        agent_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "geo:SearchPlaceIndexForText",
+                    "geo:CalculateRoute",
+                    "geo:GetPlace",
+                ],
+                resources=["*"],  # Location Service resources are region-specific
+            )
+        )
+
         # System prompt for the agent
         system_prompt = """You are a location and weather assistant. Use available tools to find locations and provide weather information.
 
 For weather queries, always use get_weather tool first to get temperature, conditions, and wind, then use get_alerts tool to check for warnings.
+
+For location queries, use search_places to find locations and calculate_route to get directions between places.
 
 For route queries, always check weather alerts at both the origin and destination locations for travel safety.
 
@@ -226,6 +247,24 @@ Be concise and helpful."""
                     },
                     "apiSchema": {"payload": self._get_alerts_openapi_schema()},
                 },
+                {
+                    "actionGroupName": "search-places",
+                    "description": "Search for places using Amazon Location Service",
+                    "actionGroupExecutor": {
+                        "lambda": self.search_places_function.function_arn
+                    },
+                    "apiSchema": {"payload": self._get_search_places_openapi_schema()},
+                },
+                {
+                    "actionGroupName": "calculate-route",
+                    "description": "Calculate routes using Amazon Location Service",
+                    "actionGroupExecutor": {
+                        "lambda": self.calculate_route_function.function_arn
+                    },
+                    "apiSchema": {
+                        "payload": self._get_calculate_route_openapi_schema()
+                    },
+                },
             ],
         )
 
@@ -245,7 +284,7 @@ Be concise and helpful."""
         sys.path.insert(0, str(src_path))
 
         try:
-            from agentcore_schemas import get_weather_action_group_schema
+            from bedrock_agent_schemas import get_weather_action_group_schema
 
             return json.dumps(get_weather_action_group_schema())
         except ImportError:
@@ -294,7 +333,7 @@ Be concise and helpful."""
         sys.path.insert(0, str(src_path))
 
         try:
-            from agentcore_schemas import get_alerts_action_group_schema
+            from bedrock_agent_schemas import get_alerts_action_group_schema
 
             return json.dumps(get_alerts_action_group_schema())
         except ImportError:
@@ -328,3 +367,113 @@ Be concise and helpful."""
                     },
                 }
             )
+
+    def _get_search_places_openapi_schema(self) -> str:
+        """Get OpenAPI schema for search places action group."""
+        return json.dumps(
+            {
+                "openapi": "3.0.0",
+                "info": {
+                    "title": "Search Places API",
+                    "version": "1.0.0",
+                    "description": "Search for places using Amazon Location Service",
+                },
+                "paths": {
+                    "/search_places": {
+                        "post": {
+                            "description": "Search for places by text query",
+                            "operationId": "search_places",
+                            "requestBody": {
+                                "required": True,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "text": {
+                                                    "type": "string",
+                                                    "description": "Search query text",
+                                                },
+                                                "max_results": {
+                                                    "type": "integer",
+                                                    "description": "Maximum number of results",
+                                                    "default": 10,
+                                                },
+                                                "bias_position": {
+                                                    "type": "array",
+                                                    "items": {"type": "number"},
+                                                    "description": "Bias position as [longitude, latitude]",
+                                                },
+                                                "filter_bbox": {
+                                                    "type": "array",
+                                                    "items": {"type": "number"},
+                                                    "description": "Bounding box filter as [west, south, east, north]",
+                                                },
+                                            },
+                                            "required": ["text"],
+                                        }
+                                    }
+                                },
+                            },
+                            "responses": {"200": {"description": "Search results"}},
+                        }
+                    }
+                },
+            }
+        )
+
+    def _get_calculate_route_openapi_schema(self) -> str:
+        """Get OpenAPI schema for calculate route action group."""
+        return json.dumps(
+            {
+                "openapi": "3.0.0",
+                "info": {
+                    "title": "Calculate Route API",
+                    "version": "1.0.0",
+                    "description": "Calculate routes using Amazon Location Service",
+                },
+                "paths": {
+                    "/calculate_route": {
+                        "post": {
+                            "description": "Calculate route between two points",
+                            "operationId": "calculate_route",
+                            "requestBody": {
+                                "required": True,
+                                "content": {
+                                    "application/json": {
+                                        "schema": {
+                                            "type": "object",
+                                            "properties": {
+                                                "departure_position": {
+                                                    "type": "array",
+                                                    "items": {"type": "number"},
+                                                    "description": "Starting position as [longitude, latitude]",
+                                                },
+                                                "destination_position": {
+                                                    "type": "array",
+                                                    "items": {"type": "number"},
+                                                    "description": "Destination position as [longitude, latitude]",
+                                                },
+                                                "travel_mode": {
+                                                    "type": "string",
+                                                    "enum": ["Car", "Truck", "Walking"],
+                                                    "description": "Travel mode for route calculation",
+                                                    "default": "Car",
+                                                },
+                                            },
+                                            "required": [
+                                                "departure_position",
+                                                "destination_position",
+                                            ],
+                                        }
+                                    }
+                                },
+                            },
+                            "responses": {
+                                "200": {"description": "Route calculation result"}
+                            },
+                        }
+                    }
+                },
+            }
+        )

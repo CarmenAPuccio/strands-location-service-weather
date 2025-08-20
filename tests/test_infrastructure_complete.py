@@ -32,7 +32,7 @@ class TestInfrastructureCompleteness(unittest.TestCase):
             "README.md",
             # Stack files
             "stacks/__init__.py",
-            "stacks/agentcore_stack.py",
+            "stacks/bedrock_agent_stack.py",
             # Construct files
             "cdk_lib/__init__.py",
             "cdk_lib/lambda_construct.py",
@@ -60,19 +60,19 @@ class TestInfrastructureCompleteness(unittest.TestCase):
 
         # Check for required imports and structure
         self.assertIn("from aws_cdk import App", content)
-        self.assertIn("LocationWeatherAgentCoreStack", content)
+        self.assertIn("LocationWeatherBedrockAgentStack", content)
         self.assertIn("app.synth()", content)
         self.assertIn('if __name__ == "__main__":', content)
 
     def test_stack_implementation(self):
         """Test stack implementation structure."""
-        stack_file = self.infrastructure_dir / "stacks" / "agentcore_stack.py"
+        stack_file = self.infrastructure_dir / "stacks" / "bedrock_agent_stack.py"
         with open(stack_file) as f:
             content = f.read()
 
         # Check for required components
         required_elements = [
-            "class LocationWeatherAgentCoreStack",
+            "class LocationWeatherBedrockAgentStack",
             "WeatherLambdaConstruct",
             "BedrockAgentConstruct",
             "def get_outputs",
@@ -116,7 +116,7 @@ class TestInfrastructureCompleteness(unittest.TestCase):
 
         required_methods = [
             "_create_bedrock_guardrail",
-            "_create_agentcore_agent",
+            "_create_bedrock_agent_agent",
             "_get_weather_openapi_schema",
             "_get_alerts_openapi_schema",
         ]
@@ -215,7 +215,7 @@ class TestInfrastructureCompleteness(unittest.TestCase):
             self.assertTrue(schema_path.exists(), f"Schema file missing: {schema_file}")
 
         # Test schema source exists
-        schema_source = self.src_dir / "agentcore_schemas.py"
+        schema_source = self.src_dir / "bedrock_agent_schemas.py"
         self.assertTrue(schema_source.exists(), "Schema source file missing")
 
         with open(schema_source) as f:
@@ -425,7 +425,7 @@ class TestInfrastructureCompleteness(unittest.TestCase):
             )
 
         # Schemas are available
-        schema_source = self.src_dir / "agentcore_schemas.py"
+        schema_source = self.src_dir / "bedrock_agent_schemas.py"
         self.assertTrue(schema_source.exists(), "Schema source missing")
 
         print("\n" + "=" * 60)

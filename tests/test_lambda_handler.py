@@ -1,5 +1,5 @@
 """
-Unit tests for AgentCore Lambda handlers.
+Unit tests for BedrockAgent Lambda handlers.
 
 This module tests the Lambda function handlers for weather and alerts tools,
 including event parsing, response formatting, error handling, and trace propagation.
@@ -19,17 +19,17 @@ lambda_functions_dir = (
 sys.path.insert(0, str(lambda_functions_dir))
 
 from lambda_handler import (
-    format_agentcore_response,
+    format_bedrock_agent_response,
     lambda_error_handler,
-    parse_agentcore_event,
+    parse_bedrock_agent_event,
 )
 
 
-class TestAgentCoreEventParsing:
-    """Test AgentCore event parsing functionality."""
+class TestBedrockAgentEventParsing:
+    """Test BedrockAgent event parsing functionality."""
 
     def test_parse_valid_event_parameters_format(self):
-        """Test parsing a valid AgentCore event with parameters array."""
+        """Test parsing a valid BedrockAgent event with parameters array."""
         event = {
             "messageVersion": "1.0",
             "parameters": [
@@ -44,15 +44,15 @@ class TestAgentCoreEventParsing:
             "function": {"functionName": "get_weather"},
         }
 
-        result = parse_agentcore_event(event)
+        result = parse_bedrock_agent_event(event)
 
         assert result["latitude"] == 47.6062
         assert result["longitude"] == -122.3321
-        assert result["_agentcore_metadata"]["agent_id"] == "test-agent-id"
-        assert result["_agentcore_metadata"]["function_name"] == "get_weather"
+        assert result["_bedrock_agent_metadata"]["agent_id"] == "test-agent-id"
+        assert result["_bedrock_agent_metadata"]["function_name"] == "get_weather"
 
     def test_parse_valid_event_requestbody_format(self):
-        """Test parsing a valid AgentCore event with requestBody format."""
+        """Test parsing a valid BedrockAgent event with requestBody format."""
         event = {
             "requestBody": {
                 "content": [{"text": '{"latitude": 47.6062, "longitude": -122.3321}'}]
@@ -65,19 +65,21 @@ class TestAgentCoreEventParsing:
             "function": {"functionName": "get_weather"},
         }
 
-        result = parse_agentcore_event(event)
+        result = parse_bedrock_agent_event(event)
 
         assert result["latitude"] == 47.6062
         assert result["longitude"] == -122.3321
-        assert result["_agentcore_metadata"]["agent_id"] == "test-agent-id"
-        assert result["_agentcore_metadata"]["function_name"] == "get_weather"
+        assert result["_bedrock_agent_metadata"]["agent_id"] == "test-agent-id"
+        assert result["_bedrock_agent_metadata"]["function_name"] == "get_weather"
 
     def test_parse_event_missing_parameters(self):
         """Test parsing event with no parameters."""
         event = {"agent": {"agentId": "test"}, "function": {"functionName": "test"}}
 
-        with pytest.raises(ValueError, match="No parameters found in AgentCore event"):
-            parse_agentcore_event(event)
+        with pytest.raises(
+            ValueError, match="No parameters found in Bedrock Agent event"
+        ):
+            parse_bedrock_agent_event(event)
 
     def test_parse_event_invalid_json(self):
         """Test parsing event with invalid JSON parameters."""
@@ -90,17 +92,17 @@ class TestAgentCoreEventParsing:
         }
 
         with pytest.raises(ValueError, match="Invalid JSON in requestBody content"):
-            parse_agentcore_event(event)
+            parse_bedrock_agent_event(event)
 
 
-class TestAgentCoreResponseFormatting:
-    """Test AgentCore response formatting functionality."""
+class TestBedrockAgentResponseFormatting:
+    """Test BedrockAgent response formatting functionality."""
 
     def test_format_success_response(self):
         """Test formatting a successful response."""
         data = {"temperature": {"value": 72, "unit": "F"}, "forecast": "Sunny"}
 
-        result = format_agentcore_response(data, success=True)
+        result = format_bedrock_agent_response(data, success=True)
 
         assert "response" in result
         assert "body" in result["response"]
@@ -116,7 +118,7 @@ class TestAgentCoreResponseFormatting:
         """Test formatting an error response."""
         error_data = {"error": "Test error", "error_type": "test"}
 
-        result = format_agentcore_response(error_data, success=False)
+        result = format_bedrock_agent_response(error_data, success=False)
 
         assert "response" in result
         assert "body" in result["response"]

@@ -25,17 +25,17 @@ welcome_message = "Ask about locations, routes, nearby places, or weather condit
 prompt_text = "How can I help you? "
 
 [deployment]
-mode = "local"  # Options: "local", "mcp", "agentcore"
+mode = "local"  # Options: "local", "mcp", "bedrock_agent"
 bedrock_model_id = "anthropic.claude-3-sonnet-20240229-v1:0"
 aws_region = "us-east-1"
 enable_tracing = true
 timeout = 30
-# agentcore_agent_id = ""  # Required when mode = "agentcore"
+# bedrock_agent_id = ""  # Required when mode = "bedrock_agent"
 
-[agentcore]
-# agent_id = ""  # Set via AGENTCORE_AGENT_ID environment variable
+[bedrock_agent]
+# agent_id = ""  # Set via BEDROCK_AGENT_ID environment variable
 agent_alias_id = "TSTALIASID"
-# session_id = ""  # Optional session ID for AgentCore
+# session_id = ""  # Optional session ID for Bedrock Agent
 enable_trace = true
 
 [guardrail]

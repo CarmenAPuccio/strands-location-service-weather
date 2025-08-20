@@ -1,8 +1,8 @@
 """
 Tests for OpenAPI schema generation and validation.
 
-This module tests the OpenAPI 3.0 schema generation for AgentCore action groups,
-ensuring compliance with AWS Bedrock AgentCore requirements.
+This module tests the OpenAPI 3.0 schema generation for BedrockAgent action groups,
+ensuring compliance with AWS Bedrock BedrockAgent requirements.
 """
 
 import json
@@ -458,11 +458,11 @@ class TestSchemaExport:
                 assert "paths" in schema_data
 
 
-class TestAgentCoreCompliance:
-    """Test AgentCore-specific compliance requirements."""
+class TestBedrockAgentCompliance:
+    """Test BedrockAgent-specific compliance requirements."""
 
-    def test_weather_schema_agentcore_compliance(self):
-        """Test weather schema compliance with AgentCore requirements."""
+    def test_weather_schema_bedrock_agent_compliance(self):
+        """Test weather schema compliance with BedrockAgent requirements."""
         schema = create_weather_action_group_schema()
 
         # Check OpenAPI 3.0 compliance
@@ -498,8 +498,8 @@ class TestAgentCoreCompliance:
                     assert "content" in success_response
                     assert "application/json" in success_response["content"]
 
-    def test_schema_validation_with_agentcore_config(self):
-        """Test schema validation with AgentCore-specific configuration."""
+    def test_schema_validation_with_bedrock_agent_config(self):
+        """Test schema validation with BedrockAgent-specific configuration."""
         config = SchemaValidationConfig(
             strict_mode=True, require_descriptions=True, validate_references=True
         )
@@ -512,13 +512,13 @@ class TestAgentCoreCompliance:
         # Should pass validation
         assert result.valid
 
-        # May have warnings about AgentCore best practices
+        # May have warnings about BedrockAgent best practices
         if result.warnings:
             warning_text = " ".join(result.warnings)
-            # Common AgentCore warnings
+            # Common BedrockAgent warnings
             assert any(
                 keyword in warning_text.lower()
-                for keyword in ["agentcore", "operation", "json", "post"]
+                for keyword in ["bedrock_agent", "operation", "json", "post"]
             )
 
 

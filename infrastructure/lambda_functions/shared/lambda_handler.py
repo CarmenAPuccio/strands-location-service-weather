@@ -92,14 +92,14 @@ def initialize_lambda_environment():
     logger.info("Lambda environment initialization complete")
 
 
-def parse_agentcore_event(event: dict[str, Any]) -> dict[str, Any]:
+def parse_bedrock_agent_event(event: dict[str, Any]) -> dict[str, Any]:
     """
-    Parse AgentCore Lambda event to extract function parameters.
+    Parse Bedrock Agent Lambda event to extract function parameters.
 
-    Supports multiple AgentCore event formats as per runtime service contract.
+    Supports multiple Bedrock Agent event formats as per runtime service contract.
 
     Args:
-        event: AgentCore Lambda event following runtime service contract
+        event: Bedrock Agent Lambda event following runtime service contract
 
     Returns:
         Dictionary containing parsed parameters with metadata
@@ -112,7 +112,7 @@ def parse_agentcore_event(event: dict[str, Any]) -> dict[str, Any]:
         function_name = event.get("function", {}).get("functionName", "unknown")
         agent_id = event.get("agent", {}).get("agentId", "unknown")
         logger.info(
-            f"Processing AgentCore event - Function: {function_name}, Agent: {agent_id}"
+            f"Processing Bedrock Agent event - Function: {function_name}, Agent: {agent_id}"
         )
 
         # Validate message version (AgentCore best practice)
@@ -175,11 +175,11 @@ def parse_agentcore_event(event: dict[str, Any]) -> dict[str, Any]:
         # Validate that we found parameters
         if not parameters:
             raise ValueError(
-                "No parameters found in AgentCore event. Expected 'parameters' array or 'requestBody' content."
+                "No parameters found in Bedrock Agent event. Expected 'parameters' array or 'requestBody' content."
             )
 
-        # Add AgentCore metadata for tracing and debugging
-        parameters["_agentcore_metadata"] = {
+        # Add Bedrock Agent metadata for tracing and debugging
+        parameters["_bedrock_agent_metadata"] = {
             "message_version": message_version,
             "agent_id": event.get("agent", {}).get("agentId"),
             "agent_alias_id": event.get("agent", {}).get("agentAliasId"),
@@ -197,12 +197,12 @@ def parse_agentcore_event(event: dict[str, Any]) -> dict[str, Any]:
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON in event parameters: {e}") from e
     except Exception as e:
-        raise ValueError(f"Failed to parse AgentCore event: {e}") from e
+        raise ValueError(f"Failed to parse Bedrock Agent event: {e}") from e
 
 
-def format_agentcore_response(data: Any, success: bool = True) -> dict[str, Any]:
+def format_bedrock_agent_response(data: Any, success: bool = True) -> dict[str, Any]:
     """
-    Format response for AgentCore Lambda functions.
+    Format response for Bedrock Agent Lambda functions.
 
     AgentCore expects responses in the format:
     {
@@ -290,14 +290,16 @@ def lambda_error_handler(func):
             # Ensure event is a dictionary for error handling
             safe_event = event if isinstance(event, dict) else {}
             error_context = create_error_context(
-                deployment_mode=DeploymentMode.AGENTCORE,
+                deployment_mode=DeploymentMode.BEDROCK_AGENT,
                 tool_name=function_name,
                 lambda_context=context,
                 agentcore_event=safe_event,
             )
 
-            # Create error handler for AgentCore protocol
-            error_handler = ErrorHandlerFactory.create_handler(DeploymentMode.AGENTCORE)
+            # Create error handler for Bedrock Agent protocol
+            error_handler = ErrorHandlerFactory.create_handler(
+                DeploymentMode.BEDROCK_AGENT
+            )
 
         except ImportError as import_error:
             logger.warning(
@@ -402,7 +404,7 @@ def lambda_error_handler(func):
                     error_type = "internal_error"
                     error_code = "INTERNAL_ERROR"
 
-                return format_agentcore_response(
+                return format_bedrock_agent_response(
                     {
                         "error": f"Error in {function_name}: {str(e)}",
                         "error_type": error_type,

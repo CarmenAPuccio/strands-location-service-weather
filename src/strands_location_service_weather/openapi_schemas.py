@@ -1,8 +1,8 @@
 """
-OpenAPI 3.0 schema generation for AgentCore action groups.
+OpenAPI 3.0 schema generation for Bedrock Agent action groups.
 
 This module provides utilities to generate OpenAPI schemas from Strands tool definitions
-for AWS Bedrock AgentCore integration. It supports automatic schema generation from
+for AWS Bedrock Agent integration. It supports automatic schema generation from
 Python function signatures and manual schema definitions.
 """
 
@@ -327,7 +327,7 @@ def create_location_action_group_schema() -> dict[str, Any]:
     """Create OpenAPI schema for location action group.
 
     Note: This creates a placeholder schema since location services
-    are typically handled by MCP tools or pre-configured AgentCore action groups.
+    are typically handled by MCP tools or pre-configured Bedrock Agent action groups.
 
     Returns:
         OpenAPI 3.0 schema for location services

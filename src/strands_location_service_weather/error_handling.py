@@ -619,14 +619,14 @@ class MCPErrorHandler(ProtocolErrorHandler):
 
 
 class HTTPRestErrorHandler(ProtocolErrorHandler):
-    """Error handler for HTTP/REST via Lambda functions (AGENTCORE mode)."""
+    """Error handler for HTTP/REST via Lambda functions (BEDROCK_AGENT mode)."""
 
     def _get_protocol_name(self) -> str:
         return "http_rest"
 
     def format_error_response(self, error: StandardizedError) -> dict[str, Any]:
-        """Format error for AgentCore Lambda response."""
-        # AgentCore expects specific response format
+        """Format error for Bedrock Agent Lambda response."""
+        # Bedrock Agent expects specific response format
         error_response = {
             "error": error.message,
             "error_id": error.error_id,
@@ -649,7 +649,7 @@ class HTTPRestErrorHandler(ProtocolErrorHandler):
         else:
             error_response["retryable"] = False
 
-        # AgentCore Lambda response format
+        # Bedrock Agent Lambda response format
         return {
             "messageVersion": "1.0",
             "response": {
@@ -659,10 +659,10 @@ class HTTPRestErrorHandler(ProtocolErrorHandler):
         }
 
     def extract_error_context(self, **kwargs) -> ErrorContext:
-        """Extract error context from AgentCore Lambda parameters."""
-        # Extract AgentCore-specific context
+        """Extract error context from Bedrock Agent Lambda parameters."""
+        # Extract Bedrock Agent-specific context
         lambda_context = kwargs.get("lambda_context")
-        agentcore_event = kwargs.get("agentcore_event", {})
+        bedrock_agent_event = kwargs.get("bedrock_agent_event", {})
 
         request_id = None
         session_id = None
@@ -670,8 +670,8 @@ class HTTPRestErrorHandler(ProtocolErrorHandler):
         if lambda_context:
             request_id = getattr(lambda_context, "aws_request_id", None)
 
-        if isinstance(agentcore_event, dict):
-            session_id = agentcore_event.get("sessionId")
+        if isinstance(bedrock_agent_event, dict):
+            session_id = bedrock_agent_event.get("sessionId")
 
         return ErrorContext(
             deployment_mode=self.deployment_mode,
@@ -697,14 +697,14 @@ class HTTPRestErrorHandler(ProtocolErrorHandler):
                     if lambda_context
                     else None
                 ),
-                "agentcore_agent_id": (
-                    agentcore_event.get("agent", {}).get("agentId")
-                    if isinstance(agentcore_event, dict)
+                "bedrock_agent_id": (
+                    bedrock_agent_event.get("agent", {}).get("agentId")
+                    if isinstance(bedrock_agent_event, dict)
                     else None
                 ),
-                "agentcore_action_group": (
-                    agentcore_event.get("actionGroup", {}).get("actionGroupName")
-                    if isinstance(agentcore_event, dict)
+                "bedrock_action_group": (
+                    bedrock_agent_event.get("actionGroup", {}).get("actionGroupName")
+                    if isinstance(bedrock_agent_event, dict)
                     else None
                 ),
                 **kwargs.get("metadata", {}),
@@ -753,7 +753,7 @@ class ErrorHandlerFactory:
         handler_mapping = {
             DeploymentMode.LOCAL: PythonDirectErrorHandler,
             DeploymentMode.MCP: MCPErrorHandler,
-            DeploymentMode.AGENTCORE: HTTPRestErrorHandler,
+            DeploymentMode.BEDROCK_AGENT: HTTPRestErrorHandler,
         }
 
         handler_class = handler_mapping.get(deployment_mode)

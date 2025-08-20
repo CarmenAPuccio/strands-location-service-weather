@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CDK deployment automation script for AgentCore weather tools.
+CDK deployment automation script for Bedrock Agent weather tools.
 
 This script follows AWS CDK best practices for Python project deployment,
 handling Lambda packaging and CDK deployment in a structured way.
@@ -15,7 +15,7 @@ from pathlib import Path
 
 
 class CDKDeploymentManager:
-    """Manages CDK deployment for AgentCore weather tools."""
+    """Manages CDK deployment for Bedrock Agent weather tools."""
 
     def __init__(self, infrastructure_dir: Path = None):
         """Initialize the deployment manager."""
@@ -181,7 +181,7 @@ class CDKDeploymentManager:
         try:
             import json
 
-            from agentcore_schemas import (
+            from bedrock_agent_schemas import (
                 get_alerts_action_group_schema,
                 get_weather_action_group_schema,
             )
@@ -199,7 +199,7 @@ class CDKDeploymentManager:
 
     def full_deployment(
         self,
-        function_prefix: str = "agentcore-weather",
+        function_prefix: str = "bedrock-agent-weather",
         weather_api_timeout: int = 10,
         otlp_endpoint: str = "",
         log_retention_days: int = 14,
@@ -241,7 +241,7 @@ class CDKDeploymentManager:
 
         return {
             "status": "success",
-            "stack_name": "LocationWeatherAgentCore",
+            "stack_name": "LocationWeatherBedrockAgent",
             "region": region,
         }
 
@@ -249,7 +249,7 @@ class CDKDeploymentManager:
 def main():
     """Main deployment script."""
     parser = argparse.ArgumentParser(
-        description="Deploy AgentCore weather tools using CDK",
+        description="Deploy Bedrock Agent weather tools using CDK",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -271,7 +271,7 @@ Examples:
     parser.add_argument("--profile", help="AWS profile name")
     parser.add_argument(
         "--function-prefix",
-        default="agentcore-weather",
+        default="bedrock-agent-weather",
         help="Prefix for function names",
     )
     parser.add_argument(
@@ -346,7 +346,7 @@ Examples:
             print("\nNext steps:")
             print("1. Test the deployed agent in AWS Console")
             print("2. Monitor CloudWatch logs and metrics")
-            print("3. Configure application to use AgentCore mode")
+            print("3. Configure application to use BEDROCK_AGENT mode")
             print("4. Set up additional monitoring and alerting")
 
     except subprocess.CalledProcessError as e:

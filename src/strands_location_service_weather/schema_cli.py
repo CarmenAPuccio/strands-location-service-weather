@@ -3,7 +3,7 @@
 CLI utility for OpenAPI schema generation and validation.
 
 This script provides command-line tools for generating, validating, and exporting
-OpenAPI 3.0 schemas for AgentCore action groups.
+OpenAPI 3.0 schemas for Bedrock Agent action groups.
 """
 
 import argparse
@@ -201,7 +201,7 @@ def validate_file(file_path: str, verbose: bool = False) -> bool:
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="OpenAPI schema generation and validation for AgentCore action groups",
+        description="OpenAPI schema generation and validation for Bedrock Agent action groups",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

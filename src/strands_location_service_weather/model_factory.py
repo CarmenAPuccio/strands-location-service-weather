@@ -1,21 +1,12 @@
 """
-Model factory for creating appropriate Strands models based on deployment configuration.
+Model factory for creating Strands model instances based on deployment configuration.
 """
 
 import logging
-from typing import TYPE_CHECKING, Union
 
 from strands.models import BedrockModel
 
 from .config import DeploymentConfig, DeploymentMode
-
-if TYPE_CHECKING:
-    # Import AgentCoreModel only for type checking to avoid runtime import errors
-    try:
-        from strands.models import AgentCoreModel
-    except ImportError:
-        # Define a placeholder type if AgentCoreModel is not available
-        AgentCoreModel = object
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -28,17 +19,17 @@ class ModelCreationError(Exception):
 
 
 class ModelFactory:
-    """Factory class for creating Strands models based on deployment configuration."""
+    """Factory class for creating Strands BedrockModel instances based on deployment configuration."""
 
     @staticmethod
-    def create_model(config: DeploymentConfig) -> Union[BedrockModel, "AgentCoreModel"]:
-        """Create appropriate Strands model based on deployment mode.
+    def create_model(config: DeploymentConfig):
+        """Create appropriate model based on deployment mode.
 
         Args:
             config: Deployment configuration containing mode and model parameters
 
         Returns:
-            BedrockModel for LOCAL/MCP modes, AgentCoreModel for AGENTCORE mode
+            Configured model instance (BedrockModel for LOCAL/MCP, AgentRuntimeModel for BEDROCK_AGENT)
 
         Raises:
             ModelCreationError: If model creation fails
@@ -47,9 +38,15 @@ class ModelFactory:
         logger.info(f"Creating model for deployment mode: {config.mode.value}")
 
         try:
-            if config.mode == DeploymentMode.AGENTCORE:
-                return ModelFactory._create_agentcore_model(config)
+            # Validate configuration first
+            ModelFactory.validate_model_config(config)
+
+            if config.mode == DeploymentMode.BEDROCK_AGENT:
+                # For BEDROCK_AGENT mode, we use BedrockModel but with agent runtime invocation
+                # The difference is in tool execution (Lambda functions vs Python functions)
+                return ModelFactory._create_bedrock_agent_runtime_model(config)
             else:
+                # LOCAL and MCP modes use standard BedrockModel
                 return ModelFactory._create_bedrock_model(config)
 
         except Exception as e:
@@ -59,7 +56,7 @@ class ModelFactory:
 
     @staticmethod
     def _create_bedrock_model(config: DeploymentConfig) -> BedrockModel:
-        """Create BedrockModel for LOCAL and MCP deployment modes.
+        """Create BedrockModel for all deployment modes.
 
         Args:
             config: Deployment configuration
@@ -109,86 +106,57 @@ class ModelFactory:
             raise ModelCreationError(error_msg) from e
 
     @staticmethod
-    def _create_agentcore_model(config: DeploymentConfig) -> "AgentCoreModel":
-        """Create AgentCoreModel for AGENTCORE deployment mode.
+    def _create_bedrock_agent_runtime_model(config: DeploymentConfig) -> BedrockModel:
+        """Create BedrockModel configured for Bedrock Agent runtime invocation.
+
+        For BEDROCK_AGENT mode, we still use BedrockModel but the tools are executed
+        as Lambda functions by the Bedrock Agent runtime, not as Python functions.
 
         Args:
-            config: Deployment configuration
+            config: Deployment configuration with bedrock_agent_id
 
         Returns:
-            Configured AgentCoreModel instance
+            Configured BedrockModel instance for agent runtime
 
         Raises:
-            ModelCreationError: If AgentCoreModel creation fails
-            ImportError: If AgentCoreModel is not available
+            ModelCreationError: If model creation fails
+            ValueError: If bedrock_agent_id is not provided
         """
-        if not config.agentcore_agent_id:
-            raise ValueError("agentcore_agent_id is required for AGENTCORE mode")
+        if not config.bedrock_agent_id:
+            raise ValueError("bedrock_agent_id is required for BEDROCK_AGENT mode")
 
         logger.info(
-            f"Creating AgentCoreModel with agent_id={config.agentcore_agent_id}, region={config.aws_region}"
+            f"Creating BedrockModel for Bedrock Agent runtime with agent_id={config.bedrock_agent_id}"
         )
 
         try:
-            # Import AgentCoreModel only when needed to avoid import errors
-            # if it's not available in the current Strands version
-            from strands.models import AgentCoreModel
-
-            # AgentCore models follow AWS Bedrock AgentCore best practices
-            # Reference: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/
+            # For BEDROCK_AGENT mode, we create a BedrockModel but store the agent_id
+            # The actual agent invocation will be handled by the LocationWeatherClient
             model_params = {
-                "agent_id": config.agentcore_agent_id,
+                "model_id": config.bedrock_model_id,
                 "region_name": config.aws_region,
             }
 
-            # Add optional AgentCore-specific parameters following AWS best practices
-            from .config import config as app_config
-
-            if hasattr(app_config, "agentcore"):
-                agentcore_config = app_config.agentcore
-
-                # Agent alias ID is required for AgentCore invocation
-                # Default to TSTALIASID for testing, but should be configured for production
-                if agentcore_config.agent_alias_id:
-                    model_params["agent_alias_id"] = agentcore_config.agent_alias_id
-
-                # Session ID enables conversation continuity across invocations
-                # Should be unique per user session for proper context management
-                if agentcore_config.session_id:
-                    model_params["session_id"] = agentcore_config.session_id
-
-                # Enable tracing for AgentCore monitoring and debugging
-                # Recommended for production environments
-                if hasattr(agentcore_config, "enable_trace"):
-                    model_params["enable_trace"] = agentcore_config.enable_trace
-
-            # Guardrails can be applied at the agent level for content filtering
-            # This provides additional safety controls beyond model-level guardrails
-            if hasattr(app_config, "guardrail") and app_config.guardrail.guardrail_id:
-                guardrail_config = app_config.guardrail
-                model_params["guardrail_id"] = guardrail_config.guardrail_id
-                model_params["guardrail_version"] = guardrail_config.guardrail_version
-                logger.info(
-                    f"Adding AgentCore guardrail configuration: {guardrail_config.guardrail_id}"
-                )
-
-            # Add timeout configuration for AgentCore invocations
+            # Add timeout configuration if specified
             if hasattr(config, "timeout") and config.timeout:
                 model_params["timeout"] = config.timeout
 
-            logger.info(f"AgentCoreModel parameters: {model_params}")
-            model = AgentCoreModel(**model_params)
+            logger.info(f"BedrockModel parameters for agent runtime: {model_params}")
+            model = BedrockModel(**model_params)
 
-            logger.info("AgentCoreModel created successfully")
+            # Store the agent_id as a custom attribute for later use
+            model._bedrock_agent_id = config.bedrock_agent_id
+            model._deployment_mode = DeploymentMode.BEDROCK_AGENT
+
+            logger.info(
+                f"BedrockModel created for Bedrock Agent runtime: {config.bedrock_agent_id}"
+            )
             return model
 
-        except ImportError as e:
-            error_msg = "AgentCoreModel is not available in the current Strands version. Please ensure you have the latest strands-agents package with AgentCore support."
-            logger.error(error_msg)
-            raise ModelCreationError(error_msg) from e
-
         except Exception as e:
-            error_msg = f"Failed to create AgentCoreModel: {str(e)}"
+            error_msg = (
+                f"Failed to create BedrockModel for Bedrock Agent runtime: {str(e)}"
+            )
             logger.error(error_msg)
             raise ModelCreationError(error_msg) from e
 
@@ -196,7 +164,7 @@ class ModelFactory:
     def validate_model_config(config: DeploymentConfig) -> bool:
         """Validate model configuration for the specified deployment mode.
 
-        This follows AWS Bedrock and AgentCore configuration best practices.
+        This follows AWS Bedrock Agent configuration best practices.
 
         Args:
             config: Deployment configuration to validate
@@ -221,35 +189,35 @@ class ModelFactory:
             raise ValueError(f"Invalid AWS region format: {config.aws_region}")
 
         # Validate mode-specific configuration
-        if config.mode == DeploymentMode.AGENTCORE:
-            if not config.agentcore_agent_id:
-                raise ValueError("agentcore_agent_id is required for AGENTCORE mode")
+        if config.mode == DeploymentMode.BEDROCK_AGENT:
+            if not config.bedrock_agent_id:
+                raise ValueError("bedrock_agent_id is required for BEDROCK_AGENT mode")
 
-            # Validate AgentCore agent ID format (should be alphanumeric with possible hyphens)
-            if not config.agentcore_agent_id.replace("-", "").isalnum():
+            # Validate Bedrock agent ID format (should be alphanumeric with possible hyphens)
+            if not config.bedrock_agent_id.replace("-", "").isalnum():
                 raise ValueError(
-                    f"Invalid AgentCore agent ID format: {config.agentcore_agent_id}"
+                    f"Invalid Bedrock agent ID format: {config.bedrock_agent_id}"
                 )
 
-            # Check for additional AgentCore configuration
+            # Check for additional Bedrock agent configuration
             from .config import config as app_config
 
-            if hasattr(app_config, "agentcore"):
-                agentcore_config = app_config.agentcore
+            if hasattr(app_config, "bedrock_agent"):
+                bedrock_agent_config = app_config.bedrock_agent
 
                 # Validate agent alias ID if present
                 if (
-                    agentcore_config.agent_alias_id
-                    and not agentcore_config.agent_alias_id.replace("-", "")
+                    bedrock_agent_config.agent_alias_id
+                    and not bedrock_agent_config.agent_alias_id.replace("-", "")
                     .replace("_", "")
                     .isalnum()
                 ):
                     raise ValueError(
-                        f"Invalid AgentCore agent alias ID format: {agentcore_config.agent_alias_id}"
+                        f"Invalid Bedrock agent alias ID format: {bedrock_agent_config.agent_alias_id}"
                     )
 
                 logger.info(
-                    f"AgentCore configuration validated: alias_id={agentcore_config.agent_alias_id}, trace_enabled={agentcore_config.enable_trace}"
+                    f"Bedrock agent configuration validated: alias_id={bedrock_agent_config.agent_alias_id}, trace_enabled={bedrock_agent_config.enable_trace}"
                 )
 
         # Validate Bedrock model ID format for both modes
@@ -278,28 +246,22 @@ class ModelFactory:
         return True
 
     @staticmethod
-    def health_check(model: Union[BedrockModel, "AgentCoreModel"]) -> bool:
+    def health_check(model) -> bool:
         """Perform health check on the created model.
 
         This follows AWS best practices for model validation and readiness checks.
 
         Args:
-            model: Model instance to check
+            model: Model instance to check (BedrockModel)
 
         Returns:
             True if model is healthy, False otherwise
         """
-        logger.info("Performing model health check")
+        logger.info(f"Performing health check for model type: {type(model).__name__}")
 
         try:
-            # Check basic model attributes
-            if hasattr(model, "model_id"):
-                # BedrockModel health check
-                logger.info(
-                    f"Checking BedrockModel health for model_id: {model.model_id}"
-                )
-
-                # Verify model has required attributes for Bedrock
+            if isinstance(model, BedrockModel):
+                # Verify BedrockModel has required attributes
                 required_attrs = ["model_id", "region_name"]
                 for attr in required_attrs:
                     if not hasattr(model, attr):
@@ -308,37 +270,13 @@ class ModelFactory:
                         )
                         return False
 
-                logger.info("BedrockModel health check passed")
-                return True
-
-            elif hasattr(model, "agent_id"):
-                # AgentCoreModel health check
                 logger.info(
-                    f"Checking AgentCoreModel health for agent_id: {model.agent_id}"
+                    f"BedrockModel health check passed for model_id: {model.model_id}"
                 )
-
-                # Verify model has required attributes for AgentCore
-                required_attrs = ["agent_id", "region_name"]
-                for attr in required_attrs:
-                    if not hasattr(model, attr):
-                        logger.warning(
-                            f"AgentCoreModel missing required attribute: {attr}"
-                        )
-                        return False
-
-                # Check AgentCore-specific attributes
-                if hasattr(model, "agent_alias_id"):
-                    logger.info(f"AgentCore alias ID: {model.agent_alias_id}")
-
-                if hasattr(model, "session_id") and model.session_id:
-                    logger.info(f"AgentCore session ID: {model.session_id}")
-
-                logger.info("AgentCoreModel health check passed")
                 return True
+
             else:
-                logger.warning(
-                    "Model health check failed: missing required model_id or agent_id"
-                )
+                logger.warning(f"Unknown model type: {type(model).__name__}")
                 return False
 
         except Exception as e:

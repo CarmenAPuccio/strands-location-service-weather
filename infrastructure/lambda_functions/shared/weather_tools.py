@@ -10,7 +10,7 @@ import os
 from typing import Any
 
 import requests
-from lambda_handler import parse_agentcore_event
+from lambda_handler import parse_bedrock_agent_event
 
 
 def get_weather_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -25,8 +25,8 @@ def get_weather_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         AgentCore-formatted response
     """
     try:
-        # Parse AgentCore event to extract parameters
-        params = parse_agentcore_event(event)
+        # Parse Bedrock Agent event to extract parameters
+        params = parse_bedrock_agent_event(event)
 
         latitude = params.get("latitude")
         longitude = params.get("longitude")
@@ -69,8 +69,8 @@ def get_alerts_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         AgentCore-formatted response
     """
     try:
-        # Parse AgentCore event to extract parameters
-        params = parse_agentcore_event(event)
+        # Parse Bedrock Agent event to extract parameters
+        params = parse_bedrock_agent_event(event)
 
         latitude = params.get("latitude")
         longitude = params.get("longitude")

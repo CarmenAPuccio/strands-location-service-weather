@@ -896,7 +896,7 @@ class TestFallbackRequirements:
 
     def test_consistent_tool_behavior_across_modes(self):
         """Test consistent tool behavior across deployment modes with fallback."""
-        modes = [DeploymentMode.LOCAL, DeploymentMode.MCP, DeploymentMode.AGENTCORE]
+        modes = [DeploymentMode.LOCAL, DeploymentMode.MCP, DeploymentMode.BEDROCK_AGENT]
 
         for mode in modes:
             # Create fallback manager for each mode

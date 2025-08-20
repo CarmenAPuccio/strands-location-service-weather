@@ -179,7 +179,7 @@ class TestToolIntegrationAcrossDeploymentModes:
         [
             (DeploymentMode.LOCAL, "python_direct"),
             (DeploymentMode.MCP, "mcp"),
-            (DeploymentMode.AGENTCORE, "http_rest"),
+            (DeploymentMode.BEDROCK_AGENT, "http_rest"),
         ],
     )
     @patch("src.strands_location_service_weather.location_weather.Agent")
@@ -230,10 +230,10 @@ class TestToolIntegrationAcrossDeploymentModes:
     @patch("src.strands_location_service_weather.location_weather.Agent")
     @patch("src.strands_location_service_weather.location_weather.ModelFactory")
     @patch("src.strands_location_service_weather.location_weather.ToolManager")
-    def test_agentcore_mode_uses_base_tools_only(
+    def test_bedrock_agent_mode_uses_base_tools_only(
         self, mock_tool_manager_class, mock_model_factory, mock_agent_class
     ):
-        """Test that AGENTCORE mode uses only base tools (no MCP tools)."""
+        """Test that BEDROCK_AGENT mode uses only base tools (no MCP tools)."""
         # Set up mocks
         mock_model = Mock()
         mock_model_factory.create_model.return_value = mock_model
@@ -243,7 +243,7 @@ class TestToolIntegrationAcrossDeploymentModes:
 
         # Mock different tool sets for different modes
         def mock_get_tools_for_mode(mode):
-            if mode == DeploymentMode.AGENTCORE:
+            if mode == DeploymentMode.BEDROCK_AGENT:
                 return [Mock(), Mock(), Mock()]  # Only base tools (3)
             else:
                 return [Mock(), Mock(), Mock(), Mock(), Mock()]  # Base + MCP tools (5)
@@ -256,18 +256,18 @@ class TestToolIntegrationAcrossDeploymentModes:
         mock_agent = Mock()
         mock_agent_class.return_value = mock_agent
 
-        # Test AGENTCORE mode
-        LocationWeatherClient(deployment_mode=DeploymentMode.AGENTCORE)
+        # Test BEDROCK_AGENT mode
+        LocationWeatherClient(deployment_mode=DeploymentMode.BEDROCK_AGENT)
         mock_tool_manager.get_tools_for_mode.assert_called_with(
-            DeploymentMode.AGENTCORE
+            DeploymentMode.BEDROCK_AGENT
         )
 
         # Test LOCAL mode for comparison
         LocationWeatherClient(deployment_mode=DeploymentMode.LOCAL)
 
-        # Verify AGENTCORE was called (should be the last call)
+        # Verify BEDROCK_AGENT was called (should be the last call)
         calls = mock_tool_manager.get_tools_for_mode.call_args_list
-        assert any(call[0][0] == DeploymentMode.AGENTCORE for call in calls)
+        assert any(call[0][0] == DeploymentMode.BEDROCK_AGENT for call in calls)
         assert any(call[0][0] == DeploymentMode.LOCAL for call in calls)
 
     @patch("src.strands_location_service_weather.location_weather.Agent")

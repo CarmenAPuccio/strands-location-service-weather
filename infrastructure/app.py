@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AWS CDK App for AgentCore Weather Tools.
+AWS CDK App for Bedrock Agent Weather Tools.
 
 This is the main CDK application entry point following AWS CDK best practices
 for Python project structure.
@@ -13,7 +13,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from aws_cdk import App, Environment
-from stacks.agentcore_stack import LocationWeatherAgentCoreStack
+from stacks.bedrock_agent_stack import LocationWeatherBedrockAgentStack
 
 
 def main():
@@ -29,13 +29,13 @@ def main():
     env = Environment(account=account, region=region) if account else None
 
     # Create the main stack
-    LocationWeatherAgentCoreStack(
+    LocationWeatherBedrockAgentStack(
         app,
-        "LocationWeatherAgentCore",
+        "LocationWeatherBedrockAgent",
         env=env,
-        description="AgentCore weather and alerts tools with Lambda functions",
+        description="Bedrock Agent weather and alerts tools with Lambda functions",
         # Stack configuration from environment variables
-        function_name_prefix=os.environ.get("FUNCTION_PREFIX", "agentcore-weather"),
+        function_name_prefix=os.environ.get("FUNCTION_PREFIX", "bedrock-agent-weather"),
         weather_api_timeout=int(os.environ.get("WEATHER_API_TIMEOUT", "10")),
         otlp_endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
         log_retention_days=int(os.environ.get("LOG_RETENTION_DAYS", "14")),

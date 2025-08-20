@@ -353,18 +353,18 @@ class TestMCPErrorHandler:
 
 
 class TestHTTPRestErrorHandler:
-    """Test HTTPRestErrorHandler for AGENTCORE deployment mode."""
+    """Test HTTPRestErrorHandler for BEDROCK_AGENT deployment mode."""
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.handler = HTTPRestErrorHandler(DeploymentMode.AGENTCORE)
+        self.handler = HTTPRestErrorHandler(DeploymentMode.BEDROCK_AGENT)
 
     def test_protocol_name(self):
         """Test protocol name is correct."""
         assert self.handler._get_protocol_name() == "http_rest"
 
     def test_format_error_response(self):
-        """Test error response formatting for AgentCore Lambda protocol."""
+        """Test error response formatting for BedrockAgent Lambda protocol."""
         error = StandardizedError(
             error_id="err_123",
             category=ErrorCategory.NETWORK,
@@ -375,7 +375,7 @@ class TestHTTPRestErrorHandler:
 
         response = self.handler.format_error_response(error)
 
-        # Verify AgentCore Lambda response format
+        # Verify BedrockAgent Lambda response format
         assert response["messageVersion"] == "1.0"
         assert "response" in response
         assert response["response"]["contentType"] == "application/json"
@@ -435,8 +435,8 @@ class TestHTTPRestErrorHandler:
         mock_lambda_context.function_version = "1.0"
         mock_lambda_context.memory_limit_in_mb = 256
 
-        # Mock AgentCore event
-        agentcore_event = {
+        # Mock BedrockAgent event
+        bedrock_agent_event = {
             "sessionId": "sess_456",
             "agent": {"agentId": "agent_789"},
             "actionGroup": {"actionGroupName": "weather_actions"},
@@ -445,11 +445,11 @@ class TestHTTPRestErrorHandler:
         context = self.handler.extract_error_context(
             tool_name="test_tool",
             lambda_context=mock_lambda_context,
-            agentcore_event=agentcore_event,
+            bedrock_agent_event=bedrock_agent_event,
             metadata={"key": "value"},
         )
 
-        assert context.deployment_mode == DeploymentMode.AGENTCORE
+        assert context.deployment_mode == DeploymentMode.BEDROCK_AGENT
         assert context.protocol == "http_rest"
         assert context.tool_name == "test_tool"
         assert context.request_id == "req_123"
@@ -457,8 +457,8 @@ class TestHTTPRestErrorHandler:
         assert context.metadata["lambda_function_name"] == "test_function"
         assert context.metadata["lambda_function_version"] == "1.0"
         assert context.metadata["lambda_memory_limit"] == 256
-        assert context.metadata["agentcore_agent_id"] == "agent_789"
-        assert context.metadata["agentcore_action_group"] == "weather_actions"
+        assert context.metadata["bedrock_agent_agent_id"] == "agent_789"
+        assert context.metadata["bedrock_agent_action_group"] == "weather_actions"
 
 
 class TestErrorHandlerFactory:
@@ -476,11 +476,11 @@ class TestErrorHandlerFactory:
         assert isinstance(handler, MCPErrorHandler)
         assert handler.deployment_mode == DeploymentMode.MCP
 
-    def test_create_handler_agentcore(self):
-        """Test creating handler for AGENTCORE deployment mode."""
-        handler = ErrorHandlerFactory.create_handler(DeploymentMode.AGENTCORE)
+    def test_create_handler_bedrock_agent(self):
+        """Test creating handler for BEDROCK_AGENT deployment mode."""
+        handler = ErrorHandlerFactory.create_handler(DeploymentMode.BEDROCK_AGENT)
         assert isinstance(handler, HTTPRestErrorHandler)
-        assert handler.deployment_mode == DeploymentMode.AGENTCORE
+        assert handler.deployment_mode == DeploymentMode.BEDROCK_AGENT
 
     def test_create_handler_invalid_mode(self):
         """Test creating handler for invalid deployment mode."""
@@ -652,7 +652,7 @@ class TestErrorHandlingRequirements:
         modes_and_handlers = [
             (DeploymentMode.LOCAL, PythonDirectErrorHandler),
             (DeploymentMode.MCP, MCPErrorHandler),
-            (DeploymentMode.AGENTCORE, HTTPRestErrorHandler),
+            (DeploymentMode.BEDROCK_AGENT, HTTPRestErrorHandler),
         ]
 
         for mode, handler_class in modes_and_handlers:
@@ -732,18 +732,18 @@ class TestErrorHandlingRequirements:
         assert "code" in mcp_response["error"]
         assert "message" in mcp_response["error"]
 
-        # Test AgentCore Lambda format
-        agentcore_handler = HTTPRestErrorHandler(DeploymentMode.AGENTCORE)
-        agentcore_response = agentcore_handler.handle_error(exception=exception)
+        # Test BedrockAgent Lambda format
+        bedrock_agent_handler = HTTPRestErrorHandler(DeploymentMode.BEDROCK_AGENT)
+        bedrock_agent_response = bedrock_agent_handler.handle_error(exception=exception)
 
-        assert "messageVersion" in agentcore_response
-        assert agentcore_response["messageVersion"] == "1.0"
-        assert "response" in agentcore_response
-        assert "body" in agentcore_response["response"]
-        assert "contentType" in agentcore_response["response"]
+        assert "messageVersion" in bedrock_agent_response
+        assert bedrock_agent_response["messageVersion"] == "1.0"
+        assert "response" in bedrock_agent_response
+        assert "body" in bedrock_agent_response["response"]
+        assert "contentType" in bedrock_agent_response["response"]
 
-        # Parse AgentCore response body
-        body_data = json.loads(agentcore_response["response"]["body"])
+        # Parse BedrockAgent response body
+        body_data = json.loads(bedrock_agent_response["response"]["body"])
         assert "error" in body_data
         assert "success" in body_data
         assert body_data["success"] is False

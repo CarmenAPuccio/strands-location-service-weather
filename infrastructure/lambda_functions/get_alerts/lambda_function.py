@@ -1,5 +1,5 @@
 """
-Lambda function for get_alerts tool with correct AgentCore response format.
+Lambda function for get_alerts tool with correct Bedrock Agent response format.
 """
 
 import json
@@ -13,7 +13,7 @@ logger.setLevel(logging.INFO)
 
 
 def format_error_response(error_message, event):
-    """Format error response for AgentCore."""
+    """Format error response for Bedrock Agent."""
     return {
         "messageVersion": "1.0",
         "response": {
@@ -42,7 +42,7 @@ def get_alerts_data(latitude, longitude):
 
     base_url = os.environ.get("WEATHER_API_BASE_URL", "https://api.weather.gov")
     timeout = int(os.environ.get("WEATHER_API_TIMEOUT", "10"))
-    user_agent = os.environ.get("USER_AGENT_ALERTS", "AgentCoreAlertsService/1.0")
+    user_agent = os.environ.get("USER_AGENT_ALERTS", "BedrockAgentAlertsService/1.0")
 
     headers = {"User-Agent": user_agent, "Accept": "application/geo+json"}
 
@@ -94,14 +94,14 @@ def lambda_handler(event, context):
     try:
         logger.info(f"Processing request - Event type: {type(event)}")
 
-        # Parse AgentCore event safely
+        # Parse Bedrock Agent event safely
         if not isinstance(event, dict):
             logger.error(f"Event is not a dictionary: {type(event)}")
             return format_error_response(
                 "Invalid event format - expected dictionary", event
             )
 
-        # Extract parameters from AgentCore event
+        # Extract parameters from Bedrock Agent event
         params = {}
 
         # Method 1: Extract from parameters array (if not empty)
@@ -182,7 +182,7 @@ def lambda_handler(event, context):
         # Call alerts API
         alerts_data = get_alerts_data(latitude, longitude)
 
-        # Format successful response in AgentCore format
+        # Format successful response in Bedrock Agent format
         return {
             "messageVersion": "1.0",
             "response": {

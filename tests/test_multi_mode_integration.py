@@ -1,6 +1,6 @@
 """
 Integration tests for multi-mode LocationWeatherClient functionality.
-Tests comparing responses across LOCAL, MCP, and AGENTCORE deployment modes.
+Tests comparing responses across LOCAL, MCP, and BEDROCK_AGENT deployment modes.
 """
 
 from unittest.mock import Mock, patch
@@ -39,23 +39,24 @@ class TestMultiModeIntegration:
         assert deployment_info.tools_count > 0
 
     @patch("strands_location_service_weather.model_factory.ModelFactory.create_model")
-    def test_agentcore_mode_initialization(self, mock_create_model):
-        """Test LocationWeatherClient initialization in AGENTCORE mode."""
-        # Mock AgentCoreModel instance
+    def test_bedrock_agent_mode_initialization(self, mock_create_model):
+        """Test LocationWeatherClient initialization in BEDROCK_AGENT mode."""
+        # Mock Bedrock Agent model instance
         mock_model_instance = Mock()
         mock_model_instance.agent_id = "test-agent-123"
         mock_model_instance.region_name = "us-east-1"
         mock_create_model.return_value = mock_model_instance
 
-        # Create config override with required AgentCore parameters
-        config_override = {"agentcore_agent_id": "test-agent-123"}
+        # Create config override with required Bedrock Agent parameters
+        config_override = {"bedrock_agent_id": "test-agent-123"}
 
         client = LocationWeatherClient(
-            deployment_mode=DeploymentMode.AGENTCORE, config_override=config_override
+            deployment_mode=DeploymentMode.BEDROCK_AGENT,
+            config_override=config_override,
         )
 
         deployment_info = client.get_deployment_info()
-        assert deployment_info.mode == DeploymentMode.AGENTCORE
+        assert deployment_info.mode == DeploymentMode.BEDROCK_AGENT
         assert deployment_info.model_type == "Mock"  # Mock class name
         assert deployment_info.agent_id == "test-agent-123"
         assert deployment_info.tools_count > 0
@@ -138,24 +139,25 @@ class TestMultiModeIntegration:
         )  # At least base tools (current_time, get_weather, get_alerts)
 
     @patch("strands_location_service_weather.model_factory.ModelFactory.create_model")
-    def test_agentcore_tools_configuration(self, mock_create_model):
-        """Test that AgentCore mode uses appropriate tools configuration."""
-        # Mock AgentCoreModel instance
+    def test_bedrock_agent_tools_configuration(self, mock_create_model):
+        """Test that BedrockAgent mode uses appropriate tools configuration."""
+        # Mock BedrockAgentModel instance
         mock_model_instance = Mock()
         mock_model_instance.agent_id = "test-agent-123"
         mock_model_instance.region_name = "us-east-1"
         mock_create_model.return_value = mock_model_instance
 
-        config_override = {"agentcore_agent_id": "test-agent-123"}
+        config_override = {"bedrock_agent_agent_id": "test-agent-123"}
 
-        agentcore_client = LocationWeatherClient(
-            deployment_mode=DeploymentMode.AGENTCORE, config_override=config_override
+        bedrock_agent_client = LocationWeatherClient(
+            deployment_mode=DeploymentMode.BEDROCK_AGENT,
+            config_override=config_override,
         )
-        agentcore_info = agentcore_client.get_deployment_info()
+        bedrock_agent_info = bedrock_agent_client.get_deployment_info()
 
-        # AgentCore should have base tools only (MCP tools replaced by action groups)
+        # BedrockAgent should have base tools only (MCP tools replaced by action groups)
         assert (
-            agentcore_info.tools_count >= 3
+            bedrock_agent_info.tools_count >= 3
         )  # Base tools: current_time, get_weather, get_alerts
 
     def test_deployment_info_completeness(self):
@@ -169,28 +171,29 @@ class TestMultiModeIntegration:
         assert info.tools_count > 0
         # model_id should be present for BedrockModel
         assert info.model_id is not None
-        # agent_id should be None for non-AgentCore modes
+        # agent_id should be None for non-BedrockAgent modes
         assert info.agent_id is None
 
     @patch("strands_location_service_weather.model_factory.ModelFactory.create_model")
-    def test_agentcore_deployment_info(self, mock_create_model):
-        """Test deployment info for AgentCore mode."""
+    def test_bedrock_agent_deployment_info(self, mock_create_model):
+        """Test deployment info for BedrockAgent mode."""
         mock_model_instance = Mock()
         mock_model_instance.agent_id = "test-agent-123"
         mock_model_instance.region_name = "us-east-1"
-        # AgentCore models don't use model_id, they use agent_id
+        # BedrockAgent models don't use model_id, they use agent_id
         mock_create_model.return_value = mock_model_instance
 
-        config_override = {"agentcore_agent_id": "test-agent-123"}
+        config_override = {"bedrock_agent_agent_id": "test-agent-123"}
 
         client = LocationWeatherClient(
-            deployment_mode=DeploymentMode.AGENTCORE, config_override=config_override
+            deployment_mode=DeploymentMode.BEDROCK_AGENT,
+            config_override=config_override,
         )
         info = client.get_deployment_info()
 
-        assert info.mode == DeploymentMode.AGENTCORE
+        assert info.mode == DeploymentMode.BEDROCK_AGENT
         assert info.agent_id == "test-agent-123"
-        assert info.model_id is None  # AgentCore uses agent_id instead
+        assert info.model_id is None  # BedrockAgent uses agent_id instead
 
     @patch("strands_location_service_weather.location_weather.requests.Session.get")
     def test_chat_functionality_consistency(self, mock_get):
@@ -244,8 +247,8 @@ class TestMultiModeErrorHandling:
     def test_invalid_deployment_mode_config(self):
         """Test handling of invalid deployment mode configuration."""
         with pytest.raises(ValueError):
-            # This should fail because AGENTCORE mode requires agent_id
-            LocationWeatherClient(deployment_mode=DeploymentMode.AGENTCORE)
+            # This should fail because BEDROCK_AGENT mode requires agent_id
+            LocationWeatherClient(deployment_mode=DeploymentMode.BEDROCK_AGENT)
 
     @patch(
         "strands_location_service_weather.model_factory.ModelFactory.validate_model_config"

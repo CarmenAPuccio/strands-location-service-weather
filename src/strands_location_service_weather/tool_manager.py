@@ -2,7 +2,7 @@
 Tool manager for handling mode-specific tool selection and validation.
 
 This module implements the Strands tool integration strategy for multi-mode deployment,
-ensuring consistent tool behavior across LOCAL, MCP, and AGENTCORE modes with
+ensuring consistent tool behavior across LOCAL, MCP, and BEDROCK_AGENT modes with
 comprehensive error handling and OpenTelemetry observability.
 """
 
@@ -31,7 +31,7 @@ class ToolProtocol(Enum):
 
     PYTHON_DIRECT = "python_direct"  # Direct Python function calls (LOCAL mode)
     MCP = "mcp"  # Model Context Protocol (MCP mode)
-    HTTP_REST = "http_rest"  # HTTP/REST via Lambda (AGENTCORE mode)
+    HTTP_REST = "http_rest"  # HTTP/REST via Lambda (BEDROCK_AGENT mode)
 
 
 @dataclass
@@ -408,27 +408,27 @@ class MCPAdapter(ToolProtocolAdapter):
 
 
 class HTTPRestAdapter(ToolProtocolAdapter):
-    """Adapter for HTTP/REST via Lambda functions (AGENTCORE mode)."""
+    """Adapter for HTTP/REST via Lambda functions (BEDROCK_AGENT mode)."""
 
     def validate_tool(self, tool_def: ToolDefinition) -> ToolValidationResult:
-        """Validate tool for HTTP/REST execution via AgentCore.
+        """Validate tool for HTTP/REST execution via Bedrock Agent.
 
-        Following AWS Bedrock AgentCore best practices:
-        https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/action-groups.html
+        Following AWS Bedrock Agent best practices:
+        https://docs.aws.amazon.com/bedrock/latest/userguide/agents-action-groups.html
         """
         logger.debug(f"Validating tool {tool_def.name} for HTTP/REST execution")
 
         warnings = []
 
-        # AgentCore Action Groups require OpenAPI 3.0 schema definitions
+        # Bedrock Agent Action Groups require OpenAPI 3.0 schema definitions
         if not tool_def.parameters_schema:
             warnings.append(
-                f"Tool {tool_def.name} missing parameters_schema - required for AgentCore OpenAPI 3.0 schema generation"
+                f"Tool {tool_def.name} missing parameters_schema - required for Bedrock Agent OpenAPI 3.0 schema generation"
             )
 
         if not tool_def.return_schema:
             warnings.append(
-                f"Tool {tool_def.name} missing return_schema - required for AgentCore response validation"
+                f"Tool {tool_def.name} missing return_schema - required for Bedrock Agent response validation"
             )
 
         # Validate OpenAPI 3.0 compatibility
@@ -444,7 +444,7 @@ class HTTPRestAdapter(ToolProtocolAdapter):
             # Check for required OpenAPI fields
             if "type" not in tool_def.parameters_schema:
                 warnings.append(
-                    f"Tool {tool_def.name} parameters_schema missing 'type' field - should be 'object' for AgentCore"
+                    f"Tool {tool_def.name} parameters_schema missing 'type' field - should be 'object' for Bedrock Agent"
                 )
 
         # Check if function can be serialized for Lambda deployment
@@ -457,7 +457,7 @@ class HTTPRestAdapter(ToolProtocolAdapter):
                     f"Tool {tool_def.name} appears to be a lambda function - may not be suitable for Lambda deployment"
                 )
 
-            # Check for AgentCore-incompatible patterns
+            # Check for Bedrock Agent-incompatible patterns
             if "async def" in source:
                 warnings.append(
                     f"Tool {tool_def.name} is async - ensure Lambda handler properly handles async execution"
@@ -474,7 +474,7 @@ class HTTPRestAdapter(ToolProtocolAdapter):
 
             sig = inspect.signature(tool_def.function)
 
-            # AgentCore Lambda functions should have simple parameter types
+            # Bedrock Agent Lambda functions should have simple parameter types
             for param_name, param in sig.parameters.items():
                 if param.annotation and hasattr(param.annotation, "__origin__"):
                     # Complex types like Union, Optional, etc. may need special handling
@@ -493,25 +493,25 @@ class HTTPRestAdapter(ToolProtocolAdapter):
         )
 
     def execute_tool(self, tool_def: ToolDefinition, **kwargs) -> ToolExecutionResult:
-        """Execute tool via HTTP/REST (AgentCore Lambda invocation) with error handling.
+        """Execute tool via HTTP/REST (Bedrock Agent Lambda invocation) with error handling.
 
-        Following AWS Bedrock AgentCore execution patterns:
-        https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/action-groups.html
+        Following AWS Bedrock Agent execution patterns:
+        https://docs.aws.amazon.com/bedrock/latest/userguide/agents-action-groups.html
         """
         import time
 
-        logger.info(f"Executing tool {tool_def.name} via HTTP/REST (AgentCore)")
+        logger.info(f"Executing tool {tool_def.name} via HTTP/REST (Bedrock Agent)")
         start_time = time.time()
 
         # Create error context for this execution
         error_context = create_error_context(
-            deployment_mode=DeploymentMode.AGENTCORE,
+            deployment_mode=DeploymentMode.BEDROCK_AGENT,
             tool_name=tool_def.name,
             metadata=kwargs,
         )
 
         # Create error handler for HTTP/REST protocol
-        error_handler = ErrorHandlerFactory.create_handler(DeploymentMode.AGENTCORE)
+        error_handler = ErrorHandlerFactory.create_handler(DeploymentMode.BEDROCK_AGENT)
 
         try:
             with tracer.start_as_current_span(
@@ -524,9 +524,11 @@ class HTTPRestAdapter(ToolProtocolAdapter):
             ) as span:
                 span.set_attribute("tool.name", tool_def.name)
                 span.set_attribute("tool.protocol", ToolProtocol.HTTP_REST.value)
-                span.set_attribute("deployment_mode", DeploymentMode.AGENTCORE.value)
-                span.set_attribute("agentcore.execution_context", "Action Group")
-                span.set_attribute("agentcore.lambda_runtime", "python3.11")
+                span.set_attribute(
+                    "deployment_mode", DeploymentMode.BEDROCK_AGENT.value
+                )
+                span.set_attribute("bedrock_agent.execution_context", "Action Group")
+                span.set_attribute("bedrock_agent.lambda_runtime", "python3.11")
 
                 # Add parameter information to span
                 if kwargs:
@@ -534,12 +536,12 @@ class HTTPRestAdapter(ToolProtocolAdapter):
                     param_names = list(kwargs.keys())
                     span.set_attribute("tool.parameter_names", ", ".join(param_names))
 
-                # In AgentCore mode, tools are executed via Action Groups
-                # The AgentCoreModel handles the HTTP/REST communication automatically
-                # through the Bedrock AgentCore runtime
+                # In BEDROCK_AGENT mode, tools are executed via Action Groups
+                # The BedrockModel handles the HTTP/REST communication automatically
+                # through the Bedrock Agent runtime
 
                 # For development/testing, we delegate to the function directly
-                # In production, this would be handled by the AgentCore runtime
+                # In production, this would be handled by the Bedrock Agent runtime
                 # which invokes Lambda functions via HTTP/REST
 
                 # Validate input parameters match OpenAPI schema
@@ -559,11 +561,11 @@ class HTTPRestAdapter(ToolProtocolAdapter):
                             f"Missing required parameters: {missing_params}"
                         )
 
-                    # Log parameter validation for AgentCore debugging
+                    # Log parameter validation for Bedrock Agent debugging
                     logger.debug(
-                        f"AgentCore tool {tool_def.name} parameter validation passed"
+                        f"Bedrock Agent tool {tool_def.name} parameter validation passed"
                     )
-                    span.set_attribute("agentcore.parameter_validation", "passed")
+                    span.set_attribute("bedrock_agent.parameter_validation", "passed")
 
                 result = tool_def.function(**kwargs)
                 execution_time = time.time() - start_time
@@ -572,17 +574,17 @@ class HTTPRestAdapter(ToolProtocolAdapter):
                 if tool_def.return_schema and result is not None:
                     # Basic validation - in production, use jsonschema library
                     logger.debug(
-                        f"AgentCore tool {tool_def.name} return value validation passed"
+                        f"Bedrock Agent tool {tool_def.name} return value validation passed"
                     )
-                    span.set_attribute("agentcore.return_validation", "passed")
+                    span.set_attribute("bedrock_agent.return_validation", "passed")
 
                 # Add success attributes to span
                 span.set_attribute("tool.success", True)
                 span.set_attribute("tool.execution_time", execution_time)
-                span.set_attribute("agentcore.openapi_validated", True)
+                span.set_attribute("bedrock_agent.openapi_validated", True)
 
                 logger.debug(
-                    f"AgentCore tool {tool_def.name} executed successfully in {execution_time:.3f}s"
+                    f"Bedrock Agent tool {tool_def.name} executed successfully in {execution_time:.3f}s"
                 )
 
                 return ToolExecutionResult(
@@ -594,8 +596,8 @@ class HTTPRestAdapter(ToolProtocolAdapter):
                     metadata={
                         "kwargs": kwargs,
                         "protocol_overhead": "200-500ms (cold start), 50-100ms (warm)",
-                        "execution_context": "AgentCore Action Group",
-                        "lambda_runtime": "python3.11",  # AgentCore recommended runtime
+                        "execution_context": "Bedrock Agent Action Group",
+                        "lambda_runtime": "python3.11",  # Bedrock Agent recommended runtime
                         "openapi_validated": True,
                     },
                 )
@@ -611,14 +613,16 @@ class HTTPRestAdapter(ToolProtocolAdapter):
                 metadata=kwargs,
             )
 
-            logger.error(f"AgentCore tool {tool_def.name} execution failed: {str(e)}")
+            logger.error(
+                f"Bedrock Agent tool {tool_def.name} execution failed: {str(e)}"
+            )
 
-            # Enhanced error context for AgentCore debugging
+            # Enhanced error context for Bedrock Agent debugging
             error_metadata = {
                 "kwargs": kwargs,
                 "exception": str(e),
                 "exception_type": type(e).__name__,
-                "execution_context": "AgentCore Action Group",
+                "execution_context": "Bedrock Agent Action Group",
                 "lambda_runtime": "python3.11",
                 "error_response": error_response,
             }
@@ -643,10 +647,10 @@ class HTTPRestAdapter(ToolProtocolAdapter):
         """Get HTTP/REST protocol information."""
         return {
             "protocol": ToolProtocol.HTTP_REST.value,
-            "description": "HTTP/REST via Lambda functions in AgentCore",
+            "description": "HTTP/REST via Lambda functions in Bedrock Agent",
             "overhead": "high (cold start), moderate (warm)",
             "typical_latency": "200-500ms (cold), 50-100ms (warm)",
-            "use_case": "AGENTCORE deployment mode with managed infrastructure",
+            "use_case": "BEDROCK_AGENT deployment mode with managed infrastructure",
         }
 
 
@@ -684,7 +688,7 @@ class ToolManager:
             parameters_schema: JSON schema for parameters (auto-generated if None and auto_generate_schema=True)
             return_schema: JSON schema for return value (auto-generated if None and auto_generate_schema=True)
             timeout: Execution timeout in seconds
-            auto_generate_schema: Whether to auto-generate OpenAPI schemas for AgentCore compatibility
+            auto_generate_schema: Whether to auto-generate OpenAPI schemas for Bedrock Agent compatibility
 
         Returns:
             True if registration successful, False otherwise
@@ -733,10 +737,10 @@ class ToolManager:
                 f"Tool {name} registered successfully with {protocol.value} protocol"
             )
 
-            # Log schema information for AgentCore tools
+            # Log schema information for Bedrock Agent tools
             if protocol == ToolProtocol.HTTP_REST:
                 logger.info(
-                    f"Tool {name} registered with OpenAPI schema for AgentCore compatibility"
+                    f"Tool {name} registered with OpenAPI schema for Bedrock Agent compatibility"
                 )
 
             return True
@@ -765,12 +769,12 @@ class ToolManager:
         # Base tools available in all modes (custom weather tools)
         base_tools = [current_time, get_weather, get_alerts]
 
-        if mode == DeploymentMode.AGENTCORE:
-            # For AgentCore mode, external tools (like location services) are typically
-            # configured as Action Groups within the AgentCore agent definition
-            # The agent handles tool orchestration internally via the AgentCore runtime
+        if mode == DeploymentMode.BEDROCK_AGENT:
+            # For BEDROCK_AGENT mode, external tools (like location services) are typically
+            # configured as Action Groups within the Bedrock Agent definition
+            # The agent handles tool orchestration internally via the Bedrock Agent runtime
             logger.info(
-                "Using base tools for AgentCore mode (location services handled by AgentCore action groups)"
+                "Using base tools for BEDROCK_AGENT mode (location services handled by Bedrock Agent action groups)"
             )
             return base_tools
         else:
@@ -910,7 +914,7 @@ class ToolManager:
         This implements requirements 8.1, 8.2, 8.3:
         - LOCAL mode uses direct Python function calls
         - MCP mode uses Model Context Protocol
-        - AGENTCORE mode uses HTTP/REST via Lambda functions
+        - BEDROCK_AGENT mode uses HTTP/REST via Lambda functions
 
         Args:
             mode: Deployment mode
@@ -921,7 +925,7 @@ class ToolManager:
         protocol_mapping = {
             DeploymentMode.LOCAL: ToolProtocol.PYTHON_DIRECT,
             DeploymentMode.MCP: ToolProtocol.MCP,
-            DeploymentMode.AGENTCORE: ToolProtocol.HTTP_REST,
+            DeploymentMode.BEDROCK_AGENT: ToolProtocol.HTTP_REST,
         }
 
         return protocol_mapping.get(mode, ToolProtocol.PYTHON_DIRECT)
@@ -987,8 +991,8 @@ class ToolManager:
 def generate_openapi_schema_for_tool(tool_func: Callable) -> dict[str, Any]:
     """Generate OpenAPI 3.0 schema for a tool function.
 
-    This follows AWS Bedrock AgentCore requirements for Action Group schemas.
-    https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/action-groups.html
+    This follows AWS Bedrock Agent requirements for Action Group schemas.
+    https://docs.aws.amazon.com/bedrock/latest/userguide/agents-action-groups.html
 
     Args:
         tool_func: Function decorated with @tool
@@ -1062,7 +1066,7 @@ def generate_openapi_schema_for_tool(tool_func: Callable) -> dict[str, Any]:
             "parameters_schema": parameters_schema,
             "return_schema": return_schema,
             "openapi_version": "3.0.0",
-            "generated_for": "aws_bedrock_agentcore",
+            "generated_for": "aws_bedrock_agent",
         }
 
     except Exception as e:

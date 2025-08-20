@@ -1,0 +1,3 @@
+# Requirements for search_places Lambda function
+# Dependencies are provided via Lambda layers
+# See infrastructure/lambda_functions/shared/requirements.txt for layer dependencies

@@ -16,7 +16,7 @@ class DeploymentMode(Enum):
 
     LOCAL = "local"
     MCP = "mcp"
-    AGENTCORE = "agentcore"
+    BEDROCK_AGENT = "bedrock_agent"
 
 
 @dataclass
@@ -55,8 +55,8 @@ class MCPConfig:
 
 
 @dataclass
-class AgentCoreConfig:
-    """AWS Bedrock AgentCore configuration."""
+class BedrockAgentConfig:
+    """AWS Bedrock Agent configuration."""
 
     agent_id: str | None = None
     agent_alias_id: str = "TSTALIASID"
@@ -192,15 +192,15 @@ class DeploymentConfig:
 
     mode: DeploymentMode = DeploymentMode.LOCAL
     bedrock_model_id: str = "anthropic.claude-3-sonnet-20240229-v1:0"
-    agentcore_agent_id: str | None = None
+    bedrock_agent_id: str | None = None
     aws_region: str = "us-east-1"
     enable_tracing: bool = True
     timeout: int = 30
 
     def __post_init__(self):
         """Validate configuration after initialization."""
-        if self.mode == DeploymentMode.AGENTCORE and not self.agentcore_agent_id:
-            raise ValueError("agentcore_agent_id is required when mode is AGENTCORE")
+        if self.mode == DeploymentMode.BEDROCK_AGENT and not self.bedrock_agent_id:
+            raise ValueError("bedrock_agent_id is required when mode is BEDROCK_AGENT")
 
     @classmethod
     def from_env_and_config(cls, config_data: dict) -> "DeploymentConfig":
@@ -225,9 +225,9 @@ class DeploymentConfig:
                     "bedrock_model_id", "anthropic.claude-3-sonnet-20240229-v1:0"
                 ),
             ),
-            agentcore_agent_id=os.getenv(
-                "AGENTCORE_AGENT_ID",
-                config_data.get("deployment", {}).get("agentcore_agent_id"),
+            bedrock_agent_id=os.getenv(
+                "BEDROCK_AGENT_ID",
+                config_data.get("deployment", {}).get("bedrock_agent_id"),
             ),
             aws_region=os.getenv(
                 "AWS_REGION",
@@ -269,7 +269,7 @@ class AppConfig:
     mcp: MCPConfig
     ui: UIConfig
     deployment: DeploymentConfig
-    agentcore: AgentCoreConfig
+    bedrock_agent: BedrockAgentConfig
     guardrail: GuardrailConfig
 
     @classmethod
@@ -373,22 +373,24 @@ class AppConfig:
 
         deployment_config = DeploymentConfig.from_env_and_config(config_data)
 
-        agentcore_config = AgentCoreConfig(
+        bedrock_agent_config = BedrockAgentConfig(
             agent_id=os.getenv(
-                "AGENTCORE_AGENT_ID",
-                config_data.get("agentcore", {}).get("agent_id"),
+                "BEDROCK_AGENT_ID",
+                config_data.get("bedrock_agent", {}).get("agent_id"),
             ),
             agent_alias_id=os.getenv(
-                "AGENTCORE_AGENT_ALIAS_ID",
-                config_data.get("agentcore", {}).get("agent_alias_id", "TSTALIASID"),
+                "BEDROCK_AGENT_ALIAS_ID",
+                config_data.get("bedrock_agent", {}).get(
+                    "agent_alias_id", "TSTALIASID"
+                ),
             ),
             session_id=os.getenv(
-                "AGENTCORE_SESSION_ID",
-                config_data.get("agentcore", {}).get("session_id"),
+                "BEDROCK_AGENT_SESSION_ID",
+                config_data.get("bedrock_agent", {}).get("session_id"),
             ),
             enable_trace=os.getenv(
-                "AGENTCORE_ENABLE_TRACE",
-                str(config_data.get("agentcore", {}).get("enable_trace", True)),
+                "BEDROCK_AGENT_ENABLE_TRACE",
+                str(config_data.get("bedrock_agent", {}).get("enable_trace", True)),
             ).lower()
             == "true",
         )
@@ -448,7 +450,7 @@ class AppConfig:
             mcp=mcp_config,
             ui=ui_config,
             deployment=deployment_config,
-            agentcore=agentcore_config,
+            bedrock_agent=bedrock_agent_config,
             guardrail=guardrail_config,
         )
 
