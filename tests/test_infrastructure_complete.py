@@ -116,7 +116,7 @@ class TestInfrastructureCompleteness(unittest.TestCase):
 
         required_methods = [
             "_create_bedrock_guardrail",
-            "_create_bedrock_agent_agent",
+            "_create_bedrock_agent",
             "_get_weather_openapi_schema",
             "_get_alerts_openapi_schema",
         ]

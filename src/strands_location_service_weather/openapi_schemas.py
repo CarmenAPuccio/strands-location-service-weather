@@ -309,7 +309,9 @@ def create_weather_action_group_schema() -> dict[str, Any]:
     logger.info("Creating weather action group schema")
 
     # Import weather tools
-    from .location_weather import current_time, get_alerts, get_weather
+    from strands_tools.current_time import current_time
+
+    from .location_weather import get_alerts, get_weather
 
     weather_tools = [get_weather, get_alerts, current_time]
 

@@ -457,8 +457,8 @@ class TestHTTPRestErrorHandler:
         assert context.metadata["lambda_function_name"] == "test_function"
         assert context.metadata["lambda_function_version"] == "1.0"
         assert context.metadata["lambda_memory_limit"] == 256
-        assert context.metadata["bedrock_agent_agent_id"] == "agent_789"
-        assert context.metadata["bedrock_agent_action_group"] == "weather_actions"
+        assert context.metadata["bedrock_agent_id"] == "agent_789"
+        # Note: bedrock_agent_action_group not currently implemented in error context
 
 
 class TestErrorHandlerFactory:

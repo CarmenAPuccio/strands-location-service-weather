@@ -16,7 +16,7 @@ from mcp import StdioServerParameters, stdio_client
 from opentelemetry import trace
 from strands import Agent, tool
 from strands.tools.mcp import MCPClient
-from strands_tools import current_time
+from strands_tools.current_time import current_time
 
 from .config import DeploymentMode, config
 
@@ -533,7 +533,6 @@ class LocationWeatherClient:
 
     def _invoke_bedrock_agent(self, prompt: str, span) -> str:
         """Invoke Bedrock Agent for BEDROCK_AGENT mode."""
-
 
         tracer = trace.get_tracer(__name__)
         with tracer.start_as_current_span("bedrock_agent_invocation") as agent_span:
