@@ -24,7 +24,7 @@ class TestMultiModeFunctionality:
         assert info.model_type == "BedrockModel"
         assert info.model_id is not None
         assert info.agent_id is None
-        assert info.tools_count == 10  # 3 weather + 7 MCP tools
+        assert info.tools_count == 11  # 3 weather + 8 MCP tools
         assert client.agent is not None  # Has direct agent
         assert not hasattr(client, "_bedrock_agent_id")  # No Bedrock Agent ID
 
@@ -37,7 +37,7 @@ class TestMultiModeFunctionality:
         assert info.model_type == "BedrockModel"
         assert info.model_id is not None
         assert info.agent_id is None
-        assert info.tools_count == 10  # 3 weather + 7 MCP tools
+        assert info.tools_count == 11  # 3 weather + 8 MCP tools
         assert client.agent is not None  # Has direct agent
         assert not hasattr(client, "_bedrock_agent_id")  # No Bedrock Agent ID
 
@@ -79,7 +79,7 @@ class TestMultiModeFunctionality:
         assert mcp_info.mode != bedrock_info.mode
 
         # Verify LOCAL and MCP are similar (both use direct agents)
-        assert local_info.tools_count == mcp_info.tools_count == 10
+        assert local_info.tools_count == mcp_info.tools_count == 11
         assert local_client.agent is not None
         assert mcp_client.agent is not None
 

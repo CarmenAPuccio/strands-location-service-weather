@@ -20,7 +20,7 @@ class TestModelFactoryEssential:
         """Test creating model for LOCAL mode."""
         config = DeploymentConfig(
             mode=DeploymentMode.LOCAL,
-            bedrock_model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+            bedrock_model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
             aws_region="us-east-1",
         )
 
@@ -31,7 +31,7 @@ class TestModelFactoryEssential:
         """Test creating model for MCP mode."""
         config = DeploymentConfig(
             mode=DeploymentMode.MCP,
-            bedrock_model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+            bedrock_model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
             aws_region="us-east-1",
         )
 
@@ -65,7 +65,7 @@ class TestModelFactoryEssential:
         """Test validation fails when AWS region is missing."""
         config = DeploymentConfig(
             mode=DeploymentMode.LOCAL,
-            bedrock_model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+            bedrock_model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
             aws_region="",  # Empty region
         )
 
@@ -91,7 +91,7 @@ class TestModelFactoryValidation:
         """Test validation passes for valid LOCAL config."""
         config = DeploymentConfig(
             mode=DeploymentMode.LOCAL,
-            bedrock_model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+            bedrock_model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
             aws_region="us-east-1",
         )
 

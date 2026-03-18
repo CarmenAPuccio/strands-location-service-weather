@@ -299,13 +299,13 @@ class TestBackwardCompatibility:
         # This should work exactly as before
         client = LocationWeatherClient(
             custom_system_prompt="Test prompt",
-            model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+            model_id="us.anthropic.claude-sonnet-4-20250514-v1:0",
             region_name="us-east-1",
         )
 
         assert client.agent is not None
         deployment_info = client.get_deployment_info()
-        assert deployment_info.model_id == "anthropic.claude-3-sonnet-20240229-v1:0"
+        assert deployment_info.model_id == "us.anthropic.claude-sonnet-4-20250514-v1:0"
         assert deployment_info.region == "us-east-1"
 
     def test_chat_method_signature_unchanged(self):

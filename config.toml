@@ -6,7 +6,7 @@
 service_name = "strands-location-service-weather"
 
 [bedrock]
-model_id = "anthropic.claude-3-sonnet-20240229-v1:0"
+model_id = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 region_name = "us-east-1"
 
 [weather_api]
@@ -26,7 +26,7 @@ prompt_text = "How can I help you? "
 
 [deployment]
 mode = "local"  # Options: "local", "mcp", "bedrock_agent"
-bedrock_model_id = "anthropic.claude-3-sonnet-20240229-v1:0"
+bedrock_model_id = "us.anthropic.claude-sonnet-4-20250514-v1:0"
 aws_region = "us-east-1"
 enable_tracing = true
 timeout = 30

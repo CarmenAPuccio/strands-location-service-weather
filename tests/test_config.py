@@ -51,7 +51,7 @@ class TestDeploymentConfig:
         """Test DeploymentConfig default values."""
         config = DeploymentConfig()
         assert config.mode == DeploymentMode.LOCAL
-        assert config.bedrock_model_id == "anthropic.claude-3-sonnet-20240229-v1:0"
+        assert config.bedrock_model_id == "us.anthropic.claude-sonnet-4-20250514-v1:0"
         assert config.bedrock_agent_id is None
         assert config.aws_region == "us-east-1"
         assert config.enable_tracing is True

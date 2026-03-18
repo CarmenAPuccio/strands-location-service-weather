@@ -47,14 +47,14 @@ class TestMCPServer:
 
     def test_ask_location_weather_tool_registered(self):
         """Test that the ask_location_weather tool is registered with FastMCP."""
+        import asyncio
+
         from src.strands_location_service_weather.mcp_server import mcp
 
-        # Check that the tool is registered
-        tools = mcp._tool_manager._tools
-        assert "ask_location_weather" in tools
-
-        tool = tools["ask_location_weather"]
-        assert tool is not None
+        # Check that the tool is registered (FastMCP 3.x async API)
+        tools = asyncio.run(mcp.list_tools())
+        tool_names = [t.name for t in tools]
+        assert "ask_location_weather" in tool_names
 
 
 class TestMCPServerIntegration:
@@ -62,15 +62,17 @@ class TestMCPServerIntegration:
 
     def test_tool_function_exists(self):
         """Test that the ask_location_weather tool function exists and is accessible."""
+        import asyncio
+
         from src.strands_location_service_weather.mcp_server import mcp
 
-        # Verify the tool is registered
-        tools = mcp._tool_manager._tools
-        assert "ask_location_weather" in tools
+        # Verify the tool is registered (FastMCP 3.x async API)
+        tools = asyncio.run(mcp.list_tools())
+        tool_names = [t.name for t in tools]
+        assert "ask_location_weather" in tool_names
 
-        tool = tools["ask_location_weather"]
+        tool = next(t for t in tools if t.name == "ask_location_weather")
         assert tool is not None
-        assert hasattr(tool, "name")
         assert tool.name == "ask_location_weather"
 
 
@@ -88,10 +90,13 @@ class TestMCPServerPerformance:
 
     def test_fastmcp_configuration_performance(self):
         """Test that FastMCP is configured for performance."""
+        import asyncio
+
         from src.strands_location_service_weather.mcp_server import mcp
 
         # Verify the server exists and has the right name
         assert mcp.name == "Location Weather Service"
 
-        # The server should have tools registered
-        assert len(mcp._tool_manager._tools) > 0
+        # The server should have tools registered (FastMCP 3.x async API)
+        tools = asyncio.run(mcp.list_tools())
+        assert len(tools) > 0

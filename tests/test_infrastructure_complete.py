@@ -134,7 +134,7 @@ class TestInfrastructureCompleteness(unittest.TestCase):
             "EMAIL",
             "US_SOCIAL_SECURITY_NUMBER",  # PII protection
             "location-weather-guardrail",  # Guardrail name
-            "anthropic.claude-3-sonnet",  # Model
+            "anthropic.claude-sonnet-4",  # Model
         ]
 
         for element in security_elements:
