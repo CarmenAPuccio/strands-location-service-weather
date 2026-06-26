@@ -90,10 +90,6 @@ class ModelFactory:
                     f"Adding guardrail configuration: {guardrail_config.guardrail_id}"
                 )
 
-            # Add timeout configuration if specified
-            if hasattr(config, "timeout") and config.timeout:
-                model_params["timeout"] = config.timeout
-
             logger.info(f"BedrockModel parameters: {model_params}")
             model = BedrockModel(**model_params)
 

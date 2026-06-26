@@ -35,7 +35,7 @@ Create a `.env` file or set environment variables:
 ```bash
 # Required for Bedrock access
 export AWS_REGION=us-east-1
-export BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
+export BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6
 
 # Optional configuration
 export WEATHER_API_TIMEOUT=10
@@ -57,7 +57,7 @@ Add the following to your Q CLI MCP configuration:
       "cwd": "/path/to/strands-location-service-weather",
       "env": {
         "AWS_REGION": "us-east-1",
-        "BEDROCK_MODEL_ID": "us.anthropic.claude-sonnet-4-20250514-v1:0"
+        "BEDROCK_MODEL_ID": "us.anthropic.claude-sonnet-4-6"
       }
     }
   }

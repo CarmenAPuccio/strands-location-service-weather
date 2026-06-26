@@ -31,7 +31,7 @@ class OpenTelemetryConfig:
 class BedrockConfig:
     """Amazon Bedrock configuration."""
 
-    model_id: str = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    model_id: str = "us.anthropic.claude-sonnet-4-6"
     region_name: str = "us-east-1"
 
 
@@ -191,7 +191,7 @@ class DeploymentConfig:
     """Deployment mode configuration with mode-specific parameters."""
 
     mode: DeploymentMode = DeploymentMode.LOCAL
-    bedrock_model_id: str = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+    bedrock_model_id: str = "us.anthropic.claude-sonnet-4-6"
     bedrock_agent_id: str | None = None
     aws_region: str = "us-east-1"
     enable_tracing: bool = True
@@ -222,7 +222,7 @@ class DeploymentConfig:
             bedrock_model_id=os.getenv(
                 "BEDROCK_MODEL_ID",
                 config_data.get("deployment", {}).get(
-                    "bedrock_model_id", "us.anthropic.claude-sonnet-4-20250514-v1:0"
+                    "bedrock_model_id", "us.anthropic.claude-sonnet-4-6"
                 ),
             ),
             bedrock_agent_id=os.getenv(
@@ -305,7 +305,7 @@ class AppConfig:
             model_id=os.getenv(
                 "BEDROCK_MODEL_ID",
                 config_data.get("bedrock", {}).get(
-                    "model_id", "us.anthropic.claude-sonnet-4-20250514-v1:0"
+                    "model_id", "us.anthropic.claude-sonnet-4-6"
                 ),
             ),
             region_name=os.getenv(

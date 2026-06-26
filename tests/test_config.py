@@ -51,7 +51,7 @@ class TestDeploymentConfig:
         """Test DeploymentConfig default values."""
         config = DeploymentConfig()
         assert config.mode == DeploymentMode.LOCAL
-        assert config.bedrock_model_id == "us.anthropic.claude-sonnet-4-20250514-v1:0"
+        assert config.bedrock_model_id == "us.anthropic.claude-sonnet-4-6"
         assert config.bedrock_agent_id is None
         assert config.aws_region == "us-east-1"
         assert config.enable_tracing is True
@@ -103,6 +103,7 @@ class TestDeploymentConfig:
         assert config.enable_tracing is False
         assert config.timeout == 60
 
+    @patch.dict(os.environ, {}, clear=True)
     def test_from_env_and_config_with_config_data(self):
         """Test DeploymentConfig.from_env_and_config with config file data."""
         config_data = {
@@ -240,6 +241,7 @@ class TestAppConfigIntegration:
         assert config.guardrail.guardrail_version == "2.0"
         assert config.guardrail.enable_content_filtering is False
 
+    @patch.dict(os.environ, {}, clear=True)
     def test_app_config_load_with_toml_file(self):
         """Test AppConfig.load with TOML configuration file."""
         toml_content = """

@@ -171,7 +171,7 @@ class BedrockAgentConstruct(Construct):
                     "bedrock:InvokeModelWithResponseStream",
                 ],
                 resources=[
-                    f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0",
+                    f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-sonnet-4-6",
                     f"arn:aws:bedrock:{self.region}::foundation-model/anthropic.claude-*",
                 ],
             )
@@ -222,7 +222,7 @@ Be concise and helpful."""
             "LocationWeatherAgent",
             agent_name="location-weather-agent",
             description="Agent for location-based weather information and alerts",
-            foundation_model="anthropic.claude-sonnet-4-20250514-v1:0",
+            foundation_model="anthropic.claude-sonnet-4-6",
             instruction=system_prompt,
             agent_resource_role_arn=agent_role.role_arn,
             idle_session_ttl_in_seconds=3600,
