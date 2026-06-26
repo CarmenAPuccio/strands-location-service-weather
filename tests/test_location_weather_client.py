@@ -26,11 +26,11 @@ class TestLocationWeatherClient:
     def test_client_with_custom_model_id(self, mock_bedrock_model, mock_mcp_client):
         """Test client initialization with custom model ID."""
         custom_model = "anthropic.claude-3-haiku-20240307-v1:0"
-        LocationWeatherClient(model_id=custom_model)
+        LocationWeatherClient(model_id=custom_model, region_name="us-east-1")
 
-        # Verify custom model ID was used (now includes timeout parameter)
+        # Verify custom model ID was used
         mock_bedrock_model.assert_called_with(
-            model_id=custom_model, region_name="us-east-1", timeout=30
+            model_id=custom_model, region_name="us-east-1"
         )
 
     def test_chat_method_calls_agent(self, weather_client):
